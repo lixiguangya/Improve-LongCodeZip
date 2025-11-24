@@ -1,3 +1,4 @@
+accelerate
 appdirs
 datasets
 editdistance
