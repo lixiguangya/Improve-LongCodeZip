@@ -47,7 +47,7 @@ python demo.py
 
 The demo showcases both compression modes: coarse-grained compression (function-level selection only) and the full two-stage compression (with fine-grained token optimization). It demonstrates how LongCodeZip compresses a code file based on a given query and achieves different compression ratios.
 
-After compression, the demo uses **`Qwen/Qwen2.5-Coder-7B-Instruct`** as the default generation model.  
+After compression, the demo uses `Qwen/Qwen2.5-Coder-7B-Instruct` as the default generation model.  
 You can change this by specifying `--generation_model`.
 
 To use an OpenAI API instead of an open source model, add the `--use_openai` flag. 
