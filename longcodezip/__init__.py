@@ -688,6 +688,7 @@ class LongCodeZip:
         min_lines_for_fine_grained: int = 5,
         importance_beta: float = 0.5,
         use_knapsack: bool = True,
+        repeat_instruction_at_end: bool = True,
     ):
         """
         Compress a code file by first splitting it into function-based chunks and then compressing.
@@ -708,6 +709,7 @@ class LongCodeZip:
             min_lines_for_fine_grained: Minimum number of lines a function must have to undergo fine-grained compression (otherwise kept fully).
             importance_beta: Controls how much function importance affects its individual compression rate during fine-grained compression.
             use_knapsack: Whether to use knapsack algorithm for block selection (True) or greedy line-by-line approach (False).
+            repeat_instruction_at_end: Whether to repeat instruction at the end of the prompt
             
         Returns:
             Compressed code and statistics with the following structure:
@@ -824,7 +826,20 @@ class LongCodeZip:
         # --- End post-join cleanup ---
 
 
-        output = f"{instruction}\n\n{compressed_code}\n\n{query}\n{instruction}"
+        # Ensure instruction/query parts are handled correctly, maybe use a template
+        prompt_parts = []
+        if instruction and instruction.strip():
+            prompt_parts.append(instruction.strip())
+        if compressed_code.strip():
+            prompt_parts.append(compressed_code) # Already has newlines handled
+        # Decide if instruction should be repeated after query based on original implementation's needs
+        if repeat_instruction_at_end and instruction and instruction.strip(): # Repeat instruction if needed
+            prompt_parts.append(instruction.strip())
+        if query and query.strip():
+            # Add query, potentially repeating instruction based on original logic
+            prompt_parts.append(query.strip())
+
+        output = "\n\n".join(prompt_parts) # Use double newline separation
         
         # Calculate actual compressed tokens
         final_compressed_tokens = self.get_token_length(output)
@@ -1419,12 +1434,12 @@ class LongCodeZip:
                 prompt_parts.append(instruction.strip())
             if compressed_code.strip():
                 prompt_parts.append(compressed_code) # Already has newlines handled
+            # Decide if instruction should be repeated after query based on original implementation's needs
+            if repeat_instruction_at_end and instruction and instruction.strip(): # Repeat instruction if needed
+                prompt_parts.append(instruction.strip())
             if query and query.strip():
-                 # Add query, potentially repeating instruction based on original logic
-                 prompt_parts.append(query.strip())
-                 # Decide if instruction should be repeated after query based on original implementation's needs
-                 # if instruction and instruction.strip(): # Repeat instruction if needed
-                 #     prompt_parts.append(instruction.strip())
+                # Add query, potentially repeating instruction based on original logic
+                prompt_parts.append(query.strip())
 
             output = "\n\n".join(prompt_parts) # Use double newline separation
 
