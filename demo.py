@@ -1,7 +1,88 @@
 from longcodezip import LongCodeZip
 from loguru import logger
+import argparse
+import os
+from dotenv import load_dotenv
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from openai import OpenAI
+
+
+def generate_completion(
+    prompt: str,
+    generation_model: str = "Qwen/Qwen2.5-Coder-7B-Instruct",
+    max_new_tokens: int = 32,
+    use_openai: bool = False,
+    api_key: str = None
+):
+
+    if use_openai:
+        api_key = api_key or os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "OpenAI API key missing. "
+                "Provide api_key or set OPENAI_API_KEY env var."
+            )
+
+        client = OpenAI(api_key=api_key)
+
+        response = client.chat.completions.create(
+            model=generation_model,
+            messages=[{
+                "role": "system",
+                "content": "You are a code generator. Output ONLY valid code without comments and explanations."
+            },
+            {"role": "user", "content": prompt}],
+            max_tokens=max_new_tokens,
+            temperature=0
+        )
+
+        generated = response.choices[0].message.content.strip()
+
+        #  Remove markdown code fences
+        if generated.startswith("```"):
+            generated = generated.replace("```python", "")
+            generated = generated.replace("```", "")
+            generated = generated.strip()
+
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(generation_model)
+        model = AutoModelForCausalLM.from_pretrained(
+            generation_model,
+            torch_dtype=torch.float16,
+            device_map="auto"
+        )
+        tokenized = tokenizer(prompt, return_tensors="pt").to(model.device)
+        output_ids = model.generate(
+            **tokenized,
+            max_new_tokens=max_new_tokens,
+            pad_token_id=tokenizer.eos_token_id
+        )
+
+        generated = tokenizer.decode(
+            output_ids[0][len(tokenized.input_ids[0]):],
+            skip_special_tokens=True
+        ).strip()
+    
+    return generated.split("\n\n")[0].strip()
+
 
 if __name__ == "__main__":
+    load_dotenv() 
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--use_openai",
+        action="store_true",
+        help="Use OpenAI API"
+    )
+    parser.add_argument(
+        "--generation_model",
+        type=str,
+        default="Qwen/Qwen2.5-Coder-7B-Instruct",
+        help="HF Model to use for generation"
+    )
+    args = parser.parse_args()
 
     with open("assets/example_context.py", "r") as f:
         context = f.read()
@@ -15,8 +96,8 @@ if __name__ == "__main__":
    
     # Initialize compressor
     logger.info("Initializing compressor...")
-    model_name = "Qwen/Qwen2.5-Coder-7B-Instruct"
-    compressor = LongCodeZip(model_name=model_name)
+    compression_model_name = "Qwen/Qwen2.5-Coder-7B-Instruct"
+    compressor = LongCodeZip(model_name=compression_model_name)
     
     # Test function-based code file compression with query
     logger.info("\nTesting function-based code file compression with query...")
@@ -37,6 +118,10 @@ if __name__ == "__main__":
     logger.info(f"Compressed prompt: \n{result_cond['compressed_prompt']}")
     logger.info(f"Compression ratio: {result_cond['compression_ratio']:.4f}") # Compression ratio: 0.3856
 
+    completion = generate_completion(prompt=result_cond["compressed_prompt"], generation_model=args.generation_model, use_openai=args.use_openai)
+    logger.info(f"Completion: {completion}")
+
+
     logger.info("\nTesting compression with Coarse-grained and Fine-grained compression...")
     result_cond = compressor.compress_code_file(
         code=context,
@@ -47,3 +132,6 @@ if __name__ == "__main__":
     )
     logger.info(f"Compressed prompt: \n{result_cond['compressed_prompt']}")
     logger.info(f"Compression ratio: {result_cond['compression_ratio']:.4f}") # Compression ratio: 0.1468
+
+    completion = generate_completion(prompt=result_cond["compressed_prompt"], generation_model=args.generation_model, use_openai=args.use_openai)
+    logger.info(f"Completion: {completion}")
