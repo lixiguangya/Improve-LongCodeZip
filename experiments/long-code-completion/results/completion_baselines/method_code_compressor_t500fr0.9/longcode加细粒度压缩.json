@@ -1,0 +1,30 @@
+{
+    "model_name": "Qwen/Qwen2.5-Coder-7B-Instruct",
+    "method": "code_compressor",
+    "num_examples_scored": 200,
+    "num_examples_total": 200,
+    "average_es": 50.123811617894056,
+    "average_em": 25.0,
+    "parameters": {
+        "dataset_path": "microsoft/LCC_python",
+        "dataset_split": "test",
+        "filter_current_lines_max": 50,
+        "filter_background_tokens_min": 3000,
+        "embed_model_name": null,
+        "compression_model_name": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "max_new_tokens": 128,
+        "batch_size": 16,
+        "rag_window_size": null,
+        "rag_overlap": null,
+        "rag_top_k": null,
+        "function_rag_language": null,
+        "function_rag_top_k": null,
+        "lingua_target_token": null,
+        "longlingua_chunk_size": null,
+        "longlingua_overlap": null,
+        "code_compressor_target_token": 500,
+        "code_compressor_rank_only": false,
+        "code_compressor_fine_ratio": 0.9,
+        "importance_beta": 0.0
+    }
+}

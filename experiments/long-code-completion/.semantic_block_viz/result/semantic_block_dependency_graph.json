@@ -1,0 +1,3957 @@
+{
+  "function_name": "update",
+  "function_span": [
+    1,
+    53
+  ],
+  "dot_files": [
+    "/home/zhangmanqing/wyh/LongCodeZip/experiments/long-code-completion/.semantic_block_viz/pdg_out/1-pdg.dot"
+  ],
+  "raw_graph": {
+    "nodes": 99,
+    "edges": 292,
+    "edge_roles": {
+      "data": 213,
+      "control_or_cfg": 79
+    }
+  },
+  "splitter_graph": {
+    "nodes": 20,
+    "edges": 58
+  },
+  "dependency_graph": {
+    "nodes": 22,
+    "edges": 87
+  },
+  "coverage": {
+    "code_lines": 22,
+    "mapped_lines": 20,
+    "missing_lines": [
+      17,
+      38
+    ]
+  },
+  "blocks": [
+    {
+      "block_id": 1,
+      "block_index": 0,
+      "kind": "definition",
+      "ast_kind": "functiondef",
+      "depth": 0,
+      "start_line": 1,
+      "end_line": 3,
+      "ppl": 0.94,
+      "stmt_count": 0,
+      "physical_line_count": 1,
+      "used_by_total": 40,
+      "depends_on_total": 88,
+      "internal_edges": 0,
+      "ddg_used_by_total": 40,
+      "ddg_depends_on_total": 88,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0,
+      "physical_lines": [
+        1
+      ],
+      "code": "def update(self, full=False):\n\n    # Marker",
+      "stmt_infos": []
+    },
+    {
+      "block_id": 2,
+      "block_index": 1,
+      "kind": "atomic",
+      "ast_kind": "assign",
+      "depth": 1,
+      "start_line": 4,
+      "end_line": 4,
+      "ppl": 1.31,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "used_by_total": 3,
+      "depends_on_total": 1,
+      "internal_edges": 0,
+      "ddg_used_by_total": 3,
+      "ddg_depends_on_total": 1,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0,
+      "physical_lines": [
+        4
+      ],
+      "code": "\n    # Marker\n    tStart = time.time()",
+      "stmt_infos": [
+        {
+          "node_id": "4:4:assign:0",
+          "start_line": 4,
+          "end_line": 4,
+          "kind": "assign",
+          "text": "    tStart = time.time()",
+          "depth": 1,
+          "raw_node_ids": [
+            "30064771075",
+            "30064771074",
+            "30064771075",
+            "30064771074"
+          ],
+          "raw_kinds": [
+            "operator>.assignment",
+            "time",
+            "operator>.assignment",
+            "time"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 4<BR/>tStart = time.time()>",
+            "<time, 4<BR/>time.time()>",
+            "<&lt;operator&gt;.assignment, 4<BR/>tStart = time.time()>",
+            "<time, 4<BR/>time.time()>"
+          ]
+        }
+      ]
+    },
+    {
+      "block_id": 3,
+      "block_index": 2,
+      "kind": "atomic",
+      "ast_kind": "assign",
+      "depth": 1,
+      "start_line": 8,
+      "end_line": 8,
+      "ppl": 1.31,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "used_by_total": 6,
+      "depends_on_total": 3,
+      "internal_edges": 0,
+      "ddg_used_by_total": 6,
+      "ddg_depends_on_total": 3,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0,
+      "physical_lines": [
+        8
+      ],
+      "code": "\n    # The current time is further adjusted by the 'timeOffset' attribute\n    # to help with tracking.\n    tNow = datetime.utcnow() + self.timeOffset",
+      "stmt_infos": [
+        {
+          "node_id": "8:8:assign:1",
+          "start_line": 8,
+          "end_line": 8,
+          "kind": "assign",
+          "text": "    tNow = datetime.utcnow() + self.timeOffset",
+          "depth": 1,
+          "raw_node_ids": [
+            "30064771080",
+            "30064771079",
+            "30064771077",
+            "30064771080",
+            "30064771079",
+            "30064771077"
+          ],
+          "raw_kinds": [
+            "operator>.assignment",
+            "operator>.addition",
+            "utcnow",
+            "operator>.assignment",
+            "operator>.addition",
+            "utcnow"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 8<BR/>tNow = datetime.utcnow() + self.timeOffset>",
+            "<&lt;operator&gt;.addition, 8<BR/>datetime.utcnow() + self.timeOffset>",
+            "<utcnow, 8<BR/>datetime.utcnow()>",
+            "<&lt;operator&gt;.assignment, 8<BR/>tNow = datetime.utcnow() + self.timeOffset>",
+            "<&lt;operator&gt;.addition, 8<BR/>datetime.utcnow() + self.timeOffset>",
+            "<utcnow, 8<BR/>datetime.utcnow()>"
+          ]
+        }
+      ]
+    },
+    {
+      "block_id": 4,
+      "block_index": 3,
+      "kind": "atomic",
+      "ast_kind": "assign",
+      "depth": 1,
+      "start_line": 11,
+      "end_line": 11,
+      "ppl": 1.31,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "used_by_total": 5,
+      "depends_on_total": 2,
+      "internal_edges": 0,
+      "ddg_used_by_total": 5,
+      "ddg_depends_on_total": 2,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0,
+      "physical_lines": [
+        11
+      ],
+      "code": "\n    # Update the observer with the current time\n    self.observer.date = tNow.strftime(\"%Y/%m/%d %H:%M:%S.%f\")",
+      "stmt_infos": [
+        {
+          "node_id": "11:11:assign:2",
+          "start_line": 11,
+          "end_line": 11,
+          "kind": "assign",
+          "text": "    self.observer.date = tNow.strftime(\"%Y/%m/%d %H:%M:%S.%f\")",
+          "depth": 1,
+          "raw_node_ids": [
+            "30064771085",
+            "30064771082",
+            "30064771085",
+            "30064771082"
+          ],
+          "raw_kinds": [
+            "operator>.assignment",
+            "strftime",
+            "operator>.assignment",
+            "strftime"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 11<BR/>self.observer.date = tNow.strftime(&quot;%Y/%m/%d %H...>",
+            "<strftime, 11<BR/>tNow.strftime(&quot;%Y/%m/%d %H:%M:%S.%f&quot;)>",
+            "<&lt;operator&gt;.assignment, 11<BR/>self.observer.date = tNow.strftime(&quot;%Y/%m/%d %H...>",
+            "<strftime, 11<BR/>tNow.strftime(&quot;%Y/%m/%d %H:%M:%S.%f&quot;)>"
+          ]
+        }
+      ]
+    },
+    {
+      "block_id": 5,
+      "block_index": 4,
+      "kind": "control",
+      "ast_kind": "for",
+      "depth": 1,
+      "start_line": 14,
+      "end_line": 14,
+      "ppl": 0.62,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "used_by_total": 23,
+      "depends_on_total": 6,
+      "internal_edges": 0,
+      "ddg_used_by_total": 22,
+      "ddg_depends_on_total": 6,
+      "cdg_used_by_total": 1,
+      "cdg_depends_on_total": 0,
+      "physical_lines": [
+        14
+      ],
+      "code": "    for tier,sat in zip(self.tiers, self.satellites):",
+      "stmt_infos": [
+        {
+          "node_id": "14:43:for:3",
+          "start_line": 14,
+          "end_line": 43,
+          "kind": "for",
+          "text": "    for tier,sat in zip(self.tiers, self.satellites):\n        if not full:\n            if tier != self.currentTier and sat.catalog_number != self.tracking:\n                continue\n\n        sat.compute(self.observer)\n\n        if sat.alt > 0:\n            ## If the satellite is up, check and see if it is \n            ## the one that we should be tracking.\n            if sat.catalog_number == self.tracking:\n                ### Is there a telescope to use?\n                if self.telescope is not None:\n                    #### Apply a perpendicular correction to the\n                    #### track to help with tracking\n                    ra, dec = getPointFromBearing(sat.ra, sat.dec, sat.bearing+math.pi/2, self.crossTrackOffset)\n\n                    #### Radians -> hours/degrees\n                    ra = ra*_rad2hr\n                    dec = dec*_rad2deg\n\n                    #### Command the telescope\n                    self.telescope.moveToPosition(ra, dec, blocking=False)\n\n        else:\n            ## If it is no longer visible, check and see if it is\n            ## the satellite that we were tracking so that we can\n            ## stop.\n            if sat.catalog_number == self.tracking:\n                self.stopTracking()",
+          "depth": 1,
+          "raw_node_ids": [
+            "30064771135",
+            "30064771132",
+            "30064771134",
+            "30064771138",
+            "30064771140",
+            "30064771142",
+            "30064771131",
+            "30064771137",
+            "180388626432",
+            "30064771139",
+            "30064771141",
+            "30064771136",
+            "30064771135",
+            "30064771132",
+            "30064771134",
+            "30064771138",
+            "30064771140",
+            "30064771142",
+            "30064771131",
+            "30064771137",
+            "180388626432",
+            "30064771139",
+            "30064771141",
+            "30064771136"
+          ],
+          "raw_kinds": [
+            "operator>.assignment",
+            "operator>.assignment",
+            "__iter__",
+            "operator>.assignment",
+            "operator>.assignment",
+            "operator>.assignment",
+            "zip",
+            "__next__",
+            "UNKNOWN",
+            "operator>.indexAccess",
+            "operator>.indexAccess",
+            "operator>.fieldAccess",
+            "operator>.assignment",
+            "operator>.assignment",
+            "__iter__",
+            "operator>.assignment",
+            "operator>.assignment",
+            "operator>.assignment",
+            "zip",
+            "__next__",
+            "UNKNOWN",
+            "operator>.indexAccess",
+            "operator>.indexAccess",
+            "operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 14<BR/>tmp2 = tmp3 = zip(self.tiers, self.satellites) ...>",
+            "<&lt;operator&gt;.assignment, 14<BR/>tmp3 = zip(self.tiers, self.satellites)>",
+            "<__iter__, 14<BR/>tmp3.__iter__()>",
+            "<&lt;operator&gt;.assignment, 14<BR/>tmp4 = tmp2.__next__()>",
+            "<&lt;operator&gt;.assignment, 14<BR/>tier = tmp4[0]>",
+            "<&lt;operator&gt;.assignment, 14<BR/>sat = tmp4[1]>",
+            "<zip, 14<BR/>zip(self.tiers, self.satellites)>",
+            "<__next__, 14<BR/>tmp2.__next__()>",
+            "<UNKNOWN, 14<BR/>iteratorNonEmptyOrException>",
+            "<&lt;operator&gt;.indexAccess, 14<BR/>tmp4[0]>",
+            "<&lt;operator&gt;.indexAccess, 14<BR/>tmp4[1]>",
+            "<&lt;operator&gt;.fieldAccess, 14<BR/>tmp2.__next__>",
+            "<&lt;operator&gt;.assignment, 14<BR/>tmp2 = tmp3 = zip(self.tiers, self.satellites) ...>",
+            "<&lt;operator&gt;.assignment, 14<BR/>tmp3 = zip(self.tiers, self.satellites)>",
+            "<__iter__, 14<BR/>tmp3.__iter__()>",
+            "<&lt;operator&gt;.assignment, 14<BR/>tmp4 = tmp2.__next__()>",
+            "<&lt;operator&gt;.assignment, 14<BR/>tier = tmp4[0]>",
+            "<&lt;operator&gt;.assignment, 14<BR/>sat = tmp4[1]>",
+            "<zip, 14<BR/>zip(self.tiers, self.satellites)>",
+            "<__next__, 14<BR/>tmp2.__next__()>",
+            "<UNKNOWN, 14<BR/>iteratorNonEmptyOrException>",
+            "<&lt;operator&gt;.indexAccess, 14<BR/>tmp4[0]>",
+            "<&lt;operator&gt;.indexAccess, 14<BR/>tmp4[1]>",
+            "<&lt;operator&gt;.fieldAccess, 14<BR/>tmp2.__next__>"
+          ]
+        }
+      ]
+    },
+    {
+      "block_id": 6,
+      "block_index": 5,
+      "kind": "control",
+      "ast_kind": "if",
+      "depth": 2,
+      "start_line": 15,
+      "end_line": 17,
+      "ppl": 0.75,
+      "stmt_count": 1,
+      "physical_line_count": 3,
+      "used_by_total": 30,
+      "depends_on_total": 12,
+      "internal_edges": 4,
+      "ddg_used_by_total": 19,
+      "ddg_depends_on_total": 11,
+      "cdg_used_by_total": 17,
+      "cdg_depends_on_total": 1,
+      "physical_lines": [
+        15,
+        16,
+        17
+      ],
+      "code": "        if not full:\n            if tier != self.currentTier and sat.catalog_number != self.tracking:\n                continue",
+      "stmt_infos": [
+        {
+          "node_id": "15:17:if:4",
+          "start_line": 15,
+          "end_line": 17,
+          "kind": "if",
+          "text": "        if not full:\n            if tier != self.currentTier and sat.catalog_number != self.tracking:\n                continue",
+          "depth": 2,
+          "raw_node_ids": [
+            "30064771086",
+            "30064771086"
+          ],
+          "raw_kinds": [
+            "operator>.logicalNot",
+            "operator>.logicalNot"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.logicalNot, 15<BR/>not full>",
+            "<&lt;operator&gt;.logicalNot, 15<BR/>not full>"
+          ]
+        }
+      ]
+    },
+    {
+      "block_id": 7,
+      "block_index": 6,
+      "kind": "atomic",
+      "ast_kind": "expr",
+      "depth": 2,
+      "start_line": 19,
+      "end_line": 19,
+      "ppl": 2.0,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "used_by_total": 9,
+      "depends_on_total": 16,
+      "internal_edges": 0,
+      "ddg_used_by_total": 9,
+      "ddg_depends_on_total": 11,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 11,
+      "physical_lines": [
+        19
+      ],
+      "code": "        sat.compute(self.observer)",
+      "stmt_infos": [
+        {
+          "node_id": "19:19:expr:7",
+          "start_line": 19,
+          "end_line": 19,
+          "kind": "expr",
+          "text": "        sat.compute(self.observer)",
+          "depth": 2,
+          "raw_node_ids": [
+            "30064771095",
+            "30064771094",
+            "30064771093",
+            "30064771095",
+            "30064771094",
+            "30064771093"
+          ],
+          "raw_kinds": [
+            "compute",
+            "operator>.fieldAccess",
+            "operator>.fieldAccess",
+            "compute",
+            "operator>.fieldAccess",
+            "operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<compute, 19<BR/>sat.compute(self.observer)>",
+            "<&lt;operator&gt;.fieldAccess, 19<BR/>sat.compute>",
+            "<&lt;operator&gt;.fieldAccess, 19<BR/>self.observer>",
+            "<compute, 19<BR/>sat.compute(self.observer)>",
+            "<&lt;operator&gt;.fieldAccess, 19<BR/>sat.compute>",
+            "<&lt;operator&gt;.fieldAccess, 19<BR/>self.observer>"
+          ]
+        }
+      ]
+    },
+    {
+      "block_id": 8,
+      "block_index": 7,
+      "kind": "control",
+      "ast_kind": "if",
+      "depth": 2,
+      "start_line": 21,
+      "end_line": 23,
+      "ppl": 1.5,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "used_by_total": 12,
+      "depends_on_total": 8,
+      "internal_edges": 0,
+      "ddg_used_by_total": 2,
+      "ddg_depends_on_total": 2,
+      "cdg_used_by_total": 10,
+      "cdg_depends_on_total": 6,
+      "physical_lines": [
+        21
+      ],
+      "code": "        if sat.alt > 0:\n            ## If the satellite is up, check and see if it is \n            ## the one that we should be tracking.",
+      "stmt_infos": [
+        {
+          "node_id": "21:43:if:8",
+          "start_line": 21,
+          "end_line": 43,
+          "kind": "if",
+          "text": "        if sat.alt > 0:\n            ## If the satellite is up, check and see if it is \n            ## the one that we should be tracking.\n            if sat.catalog_number == self.tracking:\n                ### Is there a telescope to use?\n                if self.telescope is not None:\n                    #### Apply a perpendicular correction to the\n                    #### track to help with tracking\n                    ra, dec = getPointFromBearing(sat.ra, sat.dec, sat.bearing+math.pi/2, self.crossTrackOffset)\n\n                    #### Radians -> hours/degrees\n                    ra = ra*_rad2hr\n                    dec = dec*_rad2deg\n\n                    #### Command the telescope\n                    self.telescope.moveToPosition(ra, dec, blocking=False)\n\n        else:\n            ## If it is no longer visible, check and see if it is\n            ## the satellite that we were tracking so that we can\n            ## stop.\n            if sat.catalog_number == self.tracking:\n                self.stopTracking()",
+          "depth": 2,
+          "raw_node_ids": [
+            "30064771097",
+            "30064771096",
+            "30064771097",
+            "30064771096"
+          ],
+          "raw_kinds": [
+            "operator>.greaterThan",
+            "operator>.fieldAccess",
+            "operator>.greaterThan",
+            "operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.greaterThan, 21<BR/>sat.alt &gt; 0>",
+            "<&lt;operator&gt;.fieldAccess, 21<BR/>sat.alt>",
+            "<&lt;operator&gt;.greaterThan, 21<BR/>sat.alt &gt; 0>",
+            "<&lt;operator&gt;.fieldAccess, 21<BR/>sat.alt>"
+          ]
+        }
+      ]
+    },
+    {
+      "block_id": 9,
+      "block_index": 8,
+      "kind": "control",
+      "ast_kind": "if",
+      "depth": 3,
+      "start_line": 24,
+      "end_line": 25,
+      "ppl": 1.75,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "used_by_total": 8,
+      "depends_on_total": 10,
+      "internal_edges": 0,
+      "ddg_used_by_total": 5,
+      "ddg_depends_on_total": 5,
+      "cdg_used_by_total": 3,
+      "cdg_depends_on_total": 5,
+      "physical_lines": [
+        24
+      ],
+      "code": "            if sat.catalog_number == self.tracking:\n                ### Is there a telescope to use?",
+      "stmt_infos": [
+        {
+          "node_id": "24:36:if:9",
+          "start_line": 24,
+          "end_line": 36,
+          "kind": "if",
+          "text": "            if sat.catalog_number == self.tracking:\n                ### Is there a telescope to use?\n                if self.telescope is not None:\n                    #### Apply a perpendicular correction to the\n                    #### track to help with tracking\n                    ra, dec = getPointFromBearing(sat.ra, sat.dec, sat.bearing+math.pi/2, self.crossTrackOffset)\n\n                    #### Radians -> hours/degrees\n                    ra = ra*_rad2hr\n                    dec = dec*_rad2deg\n\n                    #### Command the telescope\n                    self.telescope.moveToPosition(ra, dec, blocking=False)",
+          "depth": 3,
+          "raw_node_ids": [
+            "30064771100",
+            "30064771098",
+            "30064771099",
+            "30064771100",
+            "30064771098",
+            "30064771099"
+          ],
+          "raw_kinds": [
+            "operator>.equals",
+            "operator>.fieldAccess",
+            "operator>.fieldAccess",
+            "operator>.equals",
+            "operator>.fieldAccess",
+            "operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.equals, 24<BR/>sat.catalog_number == self.tracking>",
+            "<&lt;operator&gt;.fieldAccess, 24<BR/>sat.catalog_number>",
+            "<&lt;operator&gt;.fieldAccess, 24<BR/>self.tracking>",
+            "<&lt;operator&gt;.equals, 24<BR/>sat.catalog_number == self.tracking>",
+            "<&lt;operator&gt;.fieldAccess, 24<BR/>sat.catalog_number>",
+            "<&lt;operator&gt;.fieldAccess, 24<BR/>self.tracking>"
+          ]
+        }
+      ]
+    },
+    {
+      "block_id": 10,
+      "block_index": 9,
+      "kind": "control",
+      "ast_kind": "if",
+      "depth": 4,
+      "start_line": 26,
+      "end_line": 36,
+      "ppl": 1.31,
+      "stmt_count": 1,
+      "physical_line_count": 5,
+      "used_by_total": 30,
+      "depends_on_total": 19,
+      "internal_edges": 33,
+      "ddg_used_by_total": 30,
+      "ddg_depends_on_total": 16,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 3,
+      "physical_lines": [
+        26,
+        29,
+        32,
+        33,
+        36
+      ],
+      "code": "                if self.telescope is not None:\n                    #### Apply a perpendicular correction to the\n                    #### track to help with tracking\n                    ra, dec = getPointFromBearing(sat.ra, sat.dec, sat.bearing+math.pi/2, self.crossTrackOffset)\n\n                    #### Radians -> hours/degrees\n                    ra = ra*_rad2hr\n                    dec = dec*_rad2deg\n\n                    #### Command the telescope\n                    self.telescope.moveToPosition(ra, dec, blocking=False)",
+      "stmt_infos": [
+        {
+          "node_id": "26:36:if:10",
+          "start_line": 26,
+          "end_line": 36,
+          "kind": "if",
+          "text": "                if self.telescope is not None:\n                    #### Apply a perpendicular correction to the\n                    #### track to help with tracking\n                    ra, dec = getPointFromBearing(sat.ra, sat.dec, sat.bearing+math.pi/2, self.crossTrackOffset)\n\n                    #### Radians -> hours/degrees\n                    ra = ra*_rad2hr\n                    dec = dec*_rad2deg\n\n                    #### Command the telescope\n                    self.telescope.moveToPosition(ra, dec, blocking=False)",
+          "depth": 4,
+          "raw_node_ids": [
+            "30064771102",
+            "30064771101",
+            "30064771102",
+            "30064771101"
+          ],
+          "raw_kinds": [
+            "operator>.isNot",
+            "operator>.fieldAccess",
+            "operator>.isNot",
+            "operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.isNot, 26<BR/>self.telescope is not None>",
+            "<&lt;operator&gt;.fieldAccess, 26<BR/>self.telescope>",
+            "<&lt;operator&gt;.isNot, 26<BR/>self.telescope is not None>",
+            "<&lt;operator&gt;.fieldAccess, 26<BR/>self.telescope>"
+          ]
+        }
+      ]
+    },
+    {
+      "block_id": 11,
+      "block_index": 10,
+      "kind": "control",
+      "ast_kind": "else",
+      "depth": 2,
+      "start_line": 38,
+      "end_line": 43,
+      "ppl": 0.0,
+      "stmt_count": 0,
+      "physical_line_count": 3,
+      "used_by_total": 16,
+      "depends_on_total": 17,
+      "internal_edges": 5,
+      "ddg_used_by_total": 16,
+      "ddg_depends_on_total": 12,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 5,
+      "physical_lines": [
+        38,
+        42,
+        43
+      ],
+      "code": "        else:\n            ## If it is no longer visible, check and see if it is\n            ## the satellite that we were tracking so that we can\n            ## stop.\n            if sat.catalog_number == self.tracking:\n                self.stopTracking()",
+      "stmt_infos": []
+    },
+    {
+      "block_id": 12,
+      "block_index": 11,
+      "kind": "atomic",
+      "ast_kind": "assign",
+      "depth": 1,
+      "start_line": 47,
+      "end_line": 47,
+      "ppl": 2.12,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "used_by_total": 4,
+      "depends_on_total": 2,
+      "internal_edges": 0,
+      "ddg_used_by_total": 4,
+      "ddg_depends_on_total": 2,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0,
+      "physical_lines": [
+        47
+      ],
+      "code": "\n    # Final time to figure out how much time we spent calculating \n    # positions.\n    tStop = time.time()",
+      "stmt_infos": [
+        {
+          "node_id": "47:47:assign:17",
+          "start_line": 47,
+          "end_line": 47,
+          "kind": "assign",
+          "text": "    tStop = time.time()",
+          "depth": 1,
+          "raw_node_ids": [
+            "30064771145",
+            "30064771144",
+            "30064771145",
+            "30064771144"
+          ],
+          "raw_kinds": [
+            "operator>.assignment",
+            "time",
+            "operator>.assignment",
+            "time"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 47<BR/>tStop = time.time()>",
+            "<time, 47<BR/>time.time()>",
+            "<&lt;operator&gt;.assignment, 47<BR/>tStop = time.time()>",
+            "<time, 47<BR/>time.time()>"
+          ]
+        }
+      ]
+    },
+    {
+      "block_id": 13,
+      "block_index": 12,
+      "kind": "atomic",
+      "ast_kind": "assign",
+      "depth": 1,
+      "start_line": 50,
+      "end_line": 50,
+      "ppl": 1.75,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "used_by_total": 5,
+      "depends_on_total": 8,
+      "internal_edges": 0,
+      "ddg_used_by_total": 5,
+      "ddg_depends_on_total": 8,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0,
+      "physical_lines": [
+        50
+      ],
+      "code": "\n    # Update the tier being computed\n    self.currentTier = (self.currentTier + 1) % self.nTiers",
+      "stmt_infos": [
+        {
+          "node_id": "50:50:assign:18",
+          "start_line": 50,
+          "end_line": 50,
+          "kind": "assign",
+          "text": "    self.currentTier = (self.currentTier + 1) % self.nTiers",
+          "depth": 1,
+          "raw_node_ids": [
+            "30064771151",
+            "30064771149",
+            "30064771147",
+            "30064771151",
+            "30064771149",
+            "30064771147"
+          ],
+          "raw_kinds": [
+            "operator>.assignment",
+            "operator>.modulo",
+            "operator>.addition",
+            "operator>.assignment",
+            "operator>.modulo",
+            "operator>.addition"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 50<BR/>self.currentTier = self.currentTier + 1 % self....>",
+            "<&lt;operator&gt;.modulo, 50<BR/>self.currentTier + 1 % self.nTiers>",
+            "<&lt;operator&gt;.addition, 50<BR/>self.currentTier + 1>",
+            "<&lt;operator&gt;.assignment, 50<BR/>self.currentTier = self.currentTier + 1 % self....>",
+            "<&lt;operator&gt;.modulo, 50<BR/>self.currentTier + 1 % self.nTiers>",
+            "<&lt;operator&gt;.addition, 50<BR/>self.currentTier + 1>"
+          ]
+        }
+      ]
+    },
+    {
+      "block_id": 14,
+      "block_index": 13,
+      "kind": "atomic",
+      "ast_kind": "return",
+      "depth": 1,
+      "start_line": 53,
+      "end_line": 53,
+      "ppl": 1.06,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "used_by_total": 4,
+      "depends_on_total": 3,
+      "internal_edges": 0,
+      "ddg_used_by_total": 4,
+      "ddg_depends_on_total": 3,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0,
+      "physical_lines": [
+        53
+      ],
+      "code": "\n    # Done\n    return tStop-tStart",
+      "stmt_infos": [
+        {
+          "node_id": "53:53:return:19",
+          "start_line": 53,
+          "end_line": 53,
+          "kind": "return",
+          "text": "    return tStop-tStart",
+          "depth": 1,
+          "raw_node_ids": [
+            "141733920768",
+            "30064771152",
+            "141733920768",
+            "30064771152"
+          ],
+          "raw_kinds": [
+            "RETURN",
+            "operator>.subtraction",
+            "RETURN",
+            "operator>.subtraction"
+          ],
+          "raw_labels": [
+            "<RETURN, 53<BR/>return tStop-tStart>",
+            "<&lt;operator&gt;.subtraction, 53<BR/>tStop - tStart>",
+            "<RETURN, 53<BR/>return tStop-tStart>",
+            "<&lt;operator&gt;.subtraction, 53<BR/>tStop - tStart>"
+          ]
+        }
+      ]
+    }
+  ],
+  "block_stats": {
+    "1": {
+      "block_id": 1,
+      "block_index": 0,
+      "ppl": 0.94,
+      "stmt_count": 0,
+      "physical_line_count": 1,
+      "line_nos": [
+        1
+      ],
+      "used_by_total": 40,
+      "depends_on_total": 88,
+      "internal_edges": 0,
+      "ddg_used_by_total": 40,
+      "ddg_depends_on_total": 88,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0
+    },
+    "2": {
+      "block_id": 2,
+      "block_index": 1,
+      "ppl": 1.31,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "line_nos": [
+        4
+      ],
+      "used_by_total": 3,
+      "depends_on_total": 1,
+      "internal_edges": 0,
+      "ddg_used_by_total": 3,
+      "ddg_depends_on_total": 1,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0
+    },
+    "3": {
+      "block_id": 3,
+      "block_index": 2,
+      "ppl": 1.31,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "line_nos": [
+        8
+      ],
+      "used_by_total": 6,
+      "depends_on_total": 3,
+      "internal_edges": 0,
+      "ddg_used_by_total": 6,
+      "ddg_depends_on_total": 3,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0
+    },
+    "4": {
+      "block_id": 4,
+      "block_index": 3,
+      "ppl": 1.31,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "line_nos": [
+        11
+      ],
+      "used_by_total": 5,
+      "depends_on_total": 2,
+      "internal_edges": 0,
+      "ddg_used_by_total": 5,
+      "ddg_depends_on_total": 2,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0
+    },
+    "5": {
+      "block_id": 5,
+      "block_index": 4,
+      "ppl": 0.62,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "line_nos": [
+        14
+      ],
+      "used_by_total": 23,
+      "depends_on_total": 6,
+      "internal_edges": 0,
+      "ddg_used_by_total": 22,
+      "ddg_depends_on_total": 6,
+      "cdg_used_by_total": 1,
+      "cdg_depends_on_total": 0
+    },
+    "6": {
+      "block_id": 6,
+      "block_index": 5,
+      "ppl": 0.75,
+      "stmt_count": 1,
+      "physical_line_count": 3,
+      "line_nos": [
+        15,
+        16,
+        17
+      ],
+      "used_by_total": 30,
+      "depends_on_total": 12,
+      "internal_edges": 4,
+      "ddg_used_by_total": 19,
+      "ddg_depends_on_total": 11,
+      "cdg_used_by_total": 17,
+      "cdg_depends_on_total": 1
+    },
+    "7": {
+      "block_id": 7,
+      "block_index": 6,
+      "ppl": 2.0,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "line_nos": [
+        19
+      ],
+      "used_by_total": 9,
+      "depends_on_total": 16,
+      "internal_edges": 0,
+      "ddg_used_by_total": 9,
+      "ddg_depends_on_total": 11,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 11
+    },
+    "8": {
+      "block_id": 8,
+      "block_index": 7,
+      "ppl": 1.5,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "line_nos": [
+        21
+      ],
+      "used_by_total": 12,
+      "depends_on_total": 8,
+      "internal_edges": 0,
+      "ddg_used_by_total": 2,
+      "ddg_depends_on_total": 2,
+      "cdg_used_by_total": 10,
+      "cdg_depends_on_total": 6
+    },
+    "9": {
+      "block_id": 9,
+      "block_index": 8,
+      "ppl": 1.75,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "line_nos": [
+        24
+      ],
+      "used_by_total": 8,
+      "depends_on_total": 10,
+      "internal_edges": 0,
+      "ddg_used_by_total": 5,
+      "ddg_depends_on_total": 5,
+      "cdg_used_by_total": 3,
+      "cdg_depends_on_total": 5
+    },
+    "10": {
+      "block_id": 10,
+      "block_index": 9,
+      "ppl": 1.31,
+      "stmt_count": 1,
+      "physical_line_count": 5,
+      "line_nos": [
+        26,
+        29,
+        32,
+        33,
+        36
+      ],
+      "used_by_total": 30,
+      "depends_on_total": 19,
+      "internal_edges": 33,
+      "ddg_used_by_total": 30,
+      "ddg_depends_on_total": 16,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 3
+    },
+    "11": {
+      "block_id": 11,
+      "block_index": 10,
+      "ppl": 0.0,
+      "stmt_count": 0,
+      "physical_line_count": 3,
+      "line_nos": [
+        38,
+        42,
+        43
+      ],
+      "used_by_total": 16,
+      "depends_on_total": 17,
+      "internal_edges": 5,
+      "ddg_used_by_total": 16,
+      "ddg_depends_on_total": 12,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 5
+    },
+    "12": {
+      "block_id": 12,
+      "block_index": 11,
+      "ppl": 2.12,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "line_nos": [
+        47
+      ],
+      "used_by_total": 4,
+      "depends_on_total": 2,
+      "internal_edges": 0,
+      "ddg_used_by_total": 4,
+      "ddg_depends_on_total": 2,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0
+    },
+    "13": {
+      "block_id": 13,
+      "block_index": 12,
+      "ppl": 1.75,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "line_nos": [
+        50
+      ],
+      "used_by_total": 5,
+      "depends_on_total": 8,
+      "internal_edges": 0,
+      "ddg_used_by_total": 5,
+      "ddg_depends_on_total": 8,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0
+    },
+    "14": {
+      "block_id": 14,
+      "block_index": 13,
+      "ppl": 1.06,
+      "stmt_count": 1,
+      "physical_line_count": 1,
+      "line_nos": [
+        53
+      ],
+      "used_by_total": 4,
+      "depends_on_total": 3,
+      "internal_edges": 0,
+      "ddg_used_by_total": 4,
+      "ddg_depends_on_total": 3,
+      "cdg_used_by_total": 0,
+      "cdg_depends_on_total": 0
+    }
+  },
+  "inter_block_edges": [
+    {
+      "src_line": 1,
+      "dst_line": 4,
+      "src_block_id": 1,
+      "dst_block_id": 2,
+      "count": 1,
+      "labels": [
+        "\"DDG: tStart = time.time()\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771075",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:3",
+          "label": "\"DDG: tStart = time.time()\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 8,
+      "src_block_id": 1,
+      "dst_block_id": 3,
+      "count": 5,
+      "labels": [
+        "\"DDG: datetime.utcnow() + self.timeOffset\"",
+        "\"DDG: tNow = datetime.utcnow() + self.timeOffset\"",
+        "\"DDG: datetime.utcnow()\"",
+        "\"DDG: self.timeOffset\"",
+        "\"DDG: datetime\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771080",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:7",
+          "label": "\"DDG: datetime.utcnow() + self.timeOffset\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771080",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:8",
+          "label": "\"DDG: tNow = datetime.utcnow() + self.timeOffset\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771079",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:5",
+          "label": "\"DDG: datetime.utcnow()\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771079",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:6",
+          "label": "\"DDG: self.timeOffset\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771077",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:4",
+          "label": "\"DDG: datetime\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 11,
+      "src_block_id": 1,
+      "dst_block_id": 4,
+      "count": 4,
+      "labels": [
+        "\"DDG: self.observer.date\"",
+        "\"DDG: tNow.strftime(&quot;%Y/%m/%d %H:%M:%S.%f&quot;)\"",
+        "\"DDG: self.observer.date = tNow.strftime(&quot;%Y/%m/%d %H:%M:%S.%f&quot;)\"",
+        "\"DDG: tNow\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771085",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:9",
+          "label": "\"DDG: self.observer.date\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771085",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:11",
+          "label": "\"DDG: tNow.strftime(&quot;%Y/%m/%d %H:%M:%S.%f&quot;)\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771085",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:12",
+          "label": "\"DDG: self.observer.date = tNow.strftime(&quot;%Y/%m/%d %H:%M:%S.%f&quot;)\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771082",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:10",
+          "label": "\"DDG: tNow\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 47,
+      "src_block_id": 1,
+      "dst_block_id": 12,
+      "count": 3,
+      "labels": [
+        "\"DDG: time.time()\"",
+        "\"DDG: tStop = time.time()\"",
+        "\"DDG: time\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771145",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:21",
+          "label": "\"DDG: time.time()\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771145",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:22",
+          "label": "\"DDG: tStop = time.time()\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771144",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:20",
+          "label": "\"DDG: time\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 50,
+      "src_block_id": 1,
+      "dst_block_id": 13,
+      "count": 5,
+      "labels": [
+        "\"DDG: self.currentTier\"",
+        "\"DDG: self.currentTier + 1 % self.nTiers\"",
+        "\"DDG: self.currentTier = self.currentTier + 1 % self.nTiers\"",
+        "\"DDG: self.currentTier + 1\"",
+        "\"DDG: self.nTiers\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771151",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:23",
+          "label": "\"DDG: self.currentTier\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771151",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:26",
+          "label": "\"DDG: self.currentTier + 1 % self.nTiers\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771151",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:27",
+          "label": "\"DDG: self.currentTier = self.currentTier + 1 % self.nTiers\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771149",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:24",
+          "label": "\"DDG: self.currentTier + 1\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771149",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:25",
+          "label": "\"DDG: self.nTiers\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 53,
+      "src_block_id": 1,
+      "dst_block_id": 14,
+      "count": 4,
+      "labels": [
+        "\"DDG: &lt;RET&gt;\"",
+        "\"DDG: tStop\"",
+        "\"DDG: tStart\"",
+        "\"DDG: tStop - tStart\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "141733920768",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:0",
+          "label": "\"DDG: &lt;RET&gt;\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771152",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:28",
+          "label": "\"DDG: tStop\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771152",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:29",
+          "label": "\"DDG: tStart\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771152",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:30",
+          "label": "\"DDG: tStop - tStart\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 14,
+      "src_block_id": 1,
+      "dst_block_id": 5,
+      "count": 17,
+      "labels": [
+        "\"DDG: tmp2\"",
+        "\"DDG: zip(self.tiers, self.satellites)\"",
+        "\"DDG: tmp3 = zip(self.tiers, self.satellites)\"",
+        "\"DDG: tmp3\"",
+        "\"DDG: tmp3.__iter__()\"",
+        "\"DDG: tmp4\"",
+        "\"DDG: tmp2.__next__()\"",
+        "\"DDG: tmp4 = tmp2.__next__()\"",
+        "\"DDG: tier\"",
+        "\"DDG: tmp4[0]\"",
+        "\"DDG: tier = tmp4[0]\"",
+        "\"DDG: sat\"",
+        "\"DDG: tmp4[1]\"",
+        "\"DDG: sat = tmp4[1]\"",
+        "\"DDG: self.tiers\"",
+        "\"DDG: self.satellites\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771135",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:13",
+          "label": "\"DDG: tmp2\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771132",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:16",
+          "label": "\"DDG: zip(self.tiers, self.satellites)\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771132",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:17",
+          "label": "\"DDG: tmp3 = zip(self.tiers, self.satellites)\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771134",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:18",
+          "label": "\"DDG: tmp3\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771134",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:19",
+          "label": "\"DDG: tmp3.__iter__()\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771138",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:31",
+          "label": "\"DDG: tmp4\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771138",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:33",
+          "label": "\"DDG: tmp2.__next__()\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771138",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:34",
+          "label": "\"DDG: tmp4 = tmp2.__next__()\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771140",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:35",
+          "label": "\"DDG: tier\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771140",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:36",
+          "label": "\"DDG: tmp4[0]\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771140",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:37",
+          "label": "\"DDG: tier = tmp4[0]\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771142",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:38",
+          "label": "\"DDG: sat\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771142",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:39",
+          "label": "\"DDG: tmp4[1]\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771142",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:40",
+          "label": "\"DDG: sat = tmp4[1]\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771131",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:14",
+          "label": "\"DDG: self.tiers\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771131",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:15",
+          "label": "\"DDG: self.satellites\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771137",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:32",
+          "label": "\"DDG: tmp2\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 19,
+      "src_block_id": 1,
+      "dst_block_id": 7,
+      "count": 3,
+      "labels": [
+        "\"DDG: sat\"",
+        "\"DDG: self.observer\"",
+        "\"DDG: sat.compute(self.observer)\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771095",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:49",
+          "label": "\"DDG: sat\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771095",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:50",
+          "label": "\"DDG: self.observer\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771095",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:51",
+          "label": "\"DDG: sat.compute(self.observer)\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 15,
+      "src_block_id": 1,
+      "dst_block_id": 6,
+      "count": 2,
+      "labels": [
+        "\"DDG: full\"",
+        "\"DDG: not full\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771086",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:41",
+          "label": "\"DDG: full\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771086",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:42",
+          "label": "\"DDG: not full\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 21,
+      "src_block_id": 1,
+      "dst_block_id": 8,
+      "count": 2,
+      "labels": [
+        "\"DDG: sat.alt\"",
+        "\"DDG: sat.alt &gt; 0\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771097",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:52",
+          "label": "\"DDG: sat.alt\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771097",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:53",
+          "label": "\"DDG: sat.alt &gt; 0\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 16,
+      "src_block_id": 1,
+      "dst_block_id": 6,
+      "count": 6,
+      "labels": [
+        "\"DDG: tier != self.currentTier\"",
+        "\"DDG: sat.catalog_number != self.tracking\"",
+        "\"DDG: tier != self.currentTier and sat.catalog_number != self.tracking\"",
+        "\"DDG: tier\"",
+        "\"DDG: sat.catalog_number\"",
+        "\"DDG: self.tracking\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771092",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:44",
+          "label": "\"DDG: tier != self.currentTier\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771092",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:47",
+          "label": "\"DDG: sat.catalog_number != self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771092",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:48",
+          "label": "\"DDG: tier != self.currentTier and sat.catalog_number != self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771088",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:43",
+          "label": "\"DDG: tier\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771091",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:45",
+          "label": "\"DDG: sat.catalog_number\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771091",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:46",
+          "label": "\"DDG: self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 24,
+      "src_block_id": 1,
+      "dst_block_id": 9,
+      "count": 3,
+      "labels": [
+        "\"DDG: sat.catalog_number\"",
+        "\"DDG: self.tracking\"",
+        "\"DDG: sat.catalog_number == self.tracking\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771100",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:59",
+          "label": "\"DDG: sat.catalog_number\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771100",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:60",
+          "label": "\"DDG: self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771100",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:61",
+          "label": "\"DDG: sat.catalog_number == self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 42,
+      "src_block_id": 1,
+      "dst_block_id": 11,
+      "count": 3,
+      "labels": [
+        "\"DDG: sat.catalog_number\"",
+        "\"DDG: self.tracking\"",
+        "\"DDG: sat.catalog_number == self.tracking\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771126",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:54",
+          "label": "\"DDG: sat.catalog_number\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771126",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:55",
+          "label": "\"DDG: self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771126",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:56",
+          "label": "\"DDG: sat.catalog_number == self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 43,
+      "src_block_id": 1,
+      "dst_block_id": 11,
+      "count": 2,
+      "labels": [
+        "\"DDG: self\"",
+        "\"DDG: self.stopTracking()\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771128",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:57",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771128",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:58",
+          "label": "\"DDG: self.stopTracking()\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 26,
+      "src_block_id": 1,
+      "dst_block_id": 10,
+      "count": 2,
+      "labels": [
+        "\"DDG: self.telescope\"",
+        "\"DDG: self.telescope is not None\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771102",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:62",
+          "label": "\"DDG: self.telescope\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771102",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:63",
+          "label": "\"DDG: self.telescope is not None\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 32,
+      "src_block_id": 1,
+      "dst_block_id": 10,
+      "count": 3,
+      "labels": [
+        "\"DDG: ra * _rad2hr\"",
+        "\"DDG: ra = ra * _rad2hr\"",
+        "\"DDG: _rad2hr\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771117",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:79",
+          "label": "\"DDG: ra * _rad2hr\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771117",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:80",
+          "label": "\"DDG: ra = ra * _rad2hr\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771116",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:78",
+          "label": "\"DDG: _rad2hr\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 33,
+      "src_block_id": 1,
+      "dst_block_id": 10,
+      "count": 3,
+      "labels": [
+        "\"DDG: dec * _rad2deg\"",
+        "\"DDG: dec = dec * _rad2deg\"",
+        "\"DDG: _rad2deg\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771119",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:82",
+          "label": "\"DDG: dec * _rad2deg\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771119",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:83",
+          "label": "\"DDG: dec = dec * _rad2deg\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771118",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:81",
+          "label": "\"DDG: _rad2deg\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 29,
+      "src_block_id": 1,
+      "dst_block_id": 10,
+      "count": 14,
+      "labels": [
+        "\"DDG: tmp0\"",
+        "\"DDG: getPointFromBearing(sat.ra, sat.dec, sat.bearing + math.pi / 2, self.crossTrackOffset)\"",
+        "\"DDG: tmp0 = getPointFromBearing(sat.ra, sat.dec, sat.bearing + math.pi / 2, self.crossTrackOffset)\"",
+        "\"DDG: tmp0[0]\"",
+        "\"DDG: ra = tmp0[0]\"",
+        "\"DDG: tmp0[1]\"",
+        "\"DDG: dec = tmp0[1]\"",
+        "\"DDG: sat.ra\"",
+        "\"DDG: sat.dec\"",
+        "\"DDG: sat.bearing + math.pi / 2\"",
+        "\"DDG: self.crossTrackOffset\"",
+        "\"DDG: sat.bearing\"",
+        "\"DDG: math.pi / 2\"",
+        "\"DDG: math.pi\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771111",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:64",
+          "label": "\"DDG: tmp0\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771111",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:72",
+          "label": "\"DDG: getPointFromBearing(sat.ra, sat.dec, sat.bearing + math.pi / 2, self.crossTrackOffset)\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771111",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:73",
+          "label": "\"DDG: tmp0 = getPointFromBearing(sat.ra, sat.dec, sat.bearing + math.pi / 2, self.crossTrackOffset)\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771113",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:74",
+          "label": "\"DDG: tmp0[0]\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771113",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:75",
+          "label": "\"DDG: ra = tmp0[0]\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771115",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:76",
+          "label": "\"DDG: tmp0[1]\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771115",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:77",
+          "label": "\"DDG: dec = tmp0[1]\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771110",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:65",
+          "label": "\"DDG: sat.ra\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771110",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:66",
+          "label": "\"DDG: sat.dec\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771110",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:70",
+          "label": "\"DDG: sat.bearing + math.pi / 2\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771110",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:71",
+          "label": "\"DDG: self.crossTrackOffset\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771108",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:67",
+          "label": "\"DDG: sat.bearing\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771108",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:69",
+          "label": "\"DDG: math.pi / 2\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771107",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:68",
+          "label": "\"DDG: math.pi\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 1,
+      "dst_line": 36,
+      "src_block_id": 1,
+      "dst_block_id": 10,
+      "count": 6,
+      "labels": [
+        "\"DDG: self.telescope\"",
+        "\"DDG: tmp1 = self.telescope\"",
+        "\"DDG: tmp1\"",
+        "\"DDG: ra\"",
+        "\"DDG: dec\"",
+        "\"DDG: self.telescope.moveToPosition(ra, dec, blocking = False)\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771121",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:84",
+          "label": "\"DDG: self.telescope\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771121",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:85",
+          "label": "\"DDG: tmp1 = self.telescope\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771123",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:86",
+          "label": "\"DDG: tmp1\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771123",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:87",
+          "label": "\"DDG: ra\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771123",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:88",
+          "label": "\"DDG: dec\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771123",
+          "dst": "124554051585",
+          "key": "1-pdg.dot::1-pdg.dot:89",
+          "label": "\"DDG: self.telescope.moveToPosition(ra, dec, blocking = False)\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 4,
+      "dst_line": 1,
+      "src_block_id": 2,
+      "dst_block_id": 1,
+      "count": 1,
+      "labels": [
+        "\"DDG: \""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771074",
+          "key": "1-pdg.dot::1-pdg.dot:104",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 8,
+      "dst_line": 1,
+      "src_block_id": 3,
+      "dst_block_id": 1,
+      "count": 3,
+      "labels": [
+        "\"DDG: \"",
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771077",
+          "key": "1-pdg.dot::1-pdg.dot:118",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771080",
+          "key": "1-pdg.dot::1-pdg.dot:94",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771079",
+          "key": "1-pdg.dot::1-pdg.dot:106",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 11,
+      "dst_line": 1,
+      "src_block_id": 4,
+      "dst_block_id": 1,
+      "count": 1,
+      "labels": [
+        "\"DDG: \""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771082",
+          "key": "1-pdg.dot::1-pdg.dot:108",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 11,
+      "dst_line": 8,
+      "src_block_id": 4,
+      "dst_block_id": 3,
+      "count": 1,
+      "labels": [
+        "\"DDG: tNow\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771080",
+          "dst": "30064771082",
+          "key": "1-pdg.dot::1-pdg.dot:107",
+          "label": "\"DDG: tNow\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 14,
+      "dst_line": 1,
+      "src_block_id": 5,
+      "dst_block_id": 1,
+      "count": 6,
+      "labels": [
+        "\"DDG: \"",
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "25769803789",
+          "key": "1-pdg.dot::1-pdg.dot:97",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "107374182401",
+          "dst": "30064771135",
+          "key": "1-pdg.dot::1-pdg.dot:103",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "107374182401",
+          "dst": "30064771134",
+          "key": "1-pdg.dot::1-pdg.dot:129",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "107374182401",
+          "dst": "68719476789",
+          "key": "1-pdg.dot::1-pdg.dot:137",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "107374182401",
+          "dst": "30064771137",
+          "key": "1-pdg.dot::1-pdg.dot:140",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771131",
+          "key": "1-pdg.dot::1-pdg.dot:138",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 15,
+      "dst_line": 1,
+      "src_block_id": 6,
+      "dst_block_id": 1,
+      "count": 2,
+      "labels": [
+        "\"DDG: \"",
+        "\"DDG: full\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771086",
+          "key": "1-pdg.dot::1-pdg.dot:142",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149697",
+          "dst": "30064771086",
+          "key": "1-pdg.dot::1-pdg.dot:141",
+          "label": "\"DDG: full\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 15,
+      "dst_line": 14,
+      "src_block_id": 6,
+      "dst_block_id": 5,
+      "count": 1,
+      "labels": [
+        "\"CDG: \""
+      ],
+      "rel_types": [
+        "control"
+      ],
+      "raw_edges": [
+        {
+          "src": "180388626432",
+          "dst": "30064771086",
+          "key": "1-pdg.dot::1-pdg.dot:222",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        }
+      ]
+    },
+    {
+      "src_line": 16,
+      "dst_line": 1,
+      "src_block_id": 6,
+      "dst_block_id": 1,
+      "count": 3,
+      "labels": [
+        "\"DDG: \"",
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771088",
+          "key": "1-pdg.dot::1-pdg.dot:160",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771088",
+          "key": "1-pdg.dot::1-pdg.dot:161",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771091",
+          "key": "1-pdg.dot::1-pdg.dot:164",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 16,
+      "dst_line": 14,
+      "src_block_id": 6,
+      "dst_block_id": 5,
+      "count": 2,
+      "labels": [
+        "\"DDG: tier\"",
+        "\"DDG: sat\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771140",
+          "dst": "30064771088",
+          "key": "1-pdg.dot::1-pdg.dot:159",
+          "label": "\"DDG: tier\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771142",
+          "dst": "30064771091",
+          "key": "1-pdg.dot::1-pdg.dot:163",
+          "label": "\"DDG: sat\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 16,
+      "dst_line": 24,
+      "src_block_id": 6,
+      "dst_block_id": 9,
+      "count": 1,
+      "labels": [
+        "\"DDG: self.tracking\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771100",
+          "dst": "30064771091",
+          "key": "1-pdg.dot::1-pdg.dot:167",
+          "label": "\"DDG: self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 16,
+      "dst_line": 42,
+      "src_block_id": 6,
+      "dst_block_id": 11,
+      "count": 1,
+      "labels": [
+        "\"DDG: self.tracking\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771126",
+          "dst": "30064771091",
+          "key": "1-pdg.dot::1-pdg.dot:165",
+          "label": "\"DDG: self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 16,
+      "dst_line": 43,
+      "src_block_id": 6,
+      "dst_block_id": 11,
+      "count": 2,
+      "labels": [
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771128",
+          "dst": "30064771088",
+          "key": "1-pdg.dot::1-pdg.dot:162",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771128",
+          "dst": "30064771091",
+          "key": "1-pdg.dot::1-pdg.dot:166",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 19,
+      "dst_line": 1,
+      "src_block_id": 7,
+      "dst_block_id": 1,
+      "count": 2,
+      "labels": [
+        "\"DDG: \"",
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771095",
+          "key": "1-pdg.dot::1-pdg.dot:132",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771095",
+          "key": "1-pdg.dot::1-pdg.dot:133",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 19,
+      "dst_line": 11,
+      "src_block_id": 7,
+      "dst_block_id": 4,
+      "count": 1,
+      "labels": [
+        "\"DDG: self.observer.date\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771085",
+          "dst": "30064771095",
+          "key": "1-pdg.dot::1-pdg.dot:134",
+          "label": "\"DDG: self.observer.date\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 19,
+      "dst_line": 14,
+      "src_block_id": 7,
+      "dst_block_id": 5,
+      "count": 1,
+      "labels": [
+        "\"DDG: sat\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771142",
+          "dst": "30064771095",
+          "key": "1-pdg.dot::1-pdg.dot:130",
+          "label": "\"DDG: sat\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 19,
+      "dst_line": 15,
+      "src_block_id": 7,
+      "dst_block_id": 6,
+      "count": 5,
+      "labels": [
+        "\"CDG: \""
+      ],
+      "rel_types": [
+        "control"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771086",
+          "dst": "55834574858",
+          "key": "1-pdg.dot::1-pdg.dot:225",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771086",
+          "dst": "55834574857",
+          "key": "1-pdg.dot::1-pdg.dot:226",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771086",
+          "dst": "30064771093",
+          "key": "1-pdg.dot::1-pdg.dot:229",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771086",
+          "dst": "30064771095",
+          "key": "1-pdg.dot::1-pdg.dot:233",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771086",
+          "dst": "30064771094",
+          "key": "1-pdg.dot::1-pdg.dot:234",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        }
+      ]
+    },
+    {
+      "src_line": 19,
+      "dst_line": 16,
+      "src_block_id": 7,
+      "dst_block_id": 6,
+      "count": 6,
+      "labels": [
+        "\"CDG: \"",
+        "\"DDG: sat.catalog_number\""
+      ],
+      "rel_types": [
+        "control",
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771092",
+          "dst": "55834574858",
+          "key": "1-pdg.dot::1-pdg.dot:246",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771092",
+          "dst": "55834574857",
+          "key": "1-pdg.dot::1-pdg.dot:247",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771092",
+          "dst": "30064771093",
+          "key": "1-pdg.dot::1-pdg.dot:248",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771092",
+          "dst": "30064771095",
+          "key": "1-pdg.dot::1-pdg.dot:251",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771092",
+          "dst": "30064771094",
+          "key": "1-pdg.dot::1-pdg.dot:252",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771091",
+          "dst": "30064771095",
+          "key": "1-pdg.dot::1-pdg.dot:131",
+          "label": "\"DDG: sat.catalog_number\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 19,
+      "dst_line": 43,
+      "src_block_id": 7,
+      "dst_block_id": 11,
+      "count": 1,
+      "labels": [
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771128",
+          "dst": "30064771095",
+          "key": "1-pdg.dot::1-pdg.dot:135",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 21,
+      "dst_line": 1,
+      "src_block_id": 8,
+      "dst_block_id": 1,
+      "count": 1,
+      "labels": [
+        "\"DDG: \""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771097",
+          "key": "1-pdg.dot::1-pdg.dot:144",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 21,
+      "dst_line": 19,
+      "src_block_id": 8,
+      "dst_block_id": 7,
+      "count": 1,
+      "labels": [
+        "\"DDG: sat\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771095",
+          "dst": "30064771097",
+          "key": "1-pdg.dot::1-pdg.dot:143",
+          "label": "\"DDG: sat\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 21,
+      "dst_line": 15,
+      "src_block_id": 8,
+      "dst_block_id": 6,
+      "count": 3,
+      "labels": [
+        "\"CDG: \""
+      ],
+      "rel_types": [
+        "control"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771086",
+          "dst": "55834574859",
+          "key": "1-pdg.dot::1-pdg.dot:224",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771086",
+          "dst": "30064771097",
+          "key": "1-pdg.dot::1-pdg.dot:231",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771086",
+          "dst": "30064771096",
+          "key": "1-pdg.dot::1-pdg.dot:232",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        }
+      ]
+    },
+    {
+      "src_line": 21,
+      "dst_line": 16,
+      "src_block_id": 8,
+      "dst_block_id": 6,
+      "count": 3,
+      "labels": [
+        "\"CDG: \""
+      ],
+      "rel_types": [
+        "control"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771092",
+          "dst": "55834574859",
+          "key": "1-pdg.dot::1-pdg.dot:245",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771092",
+          "dst": "30064771097",
+          "key": "1-pdg.dot::1-pdg.dot:249",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771092",
+          "dst": "30064771096",
+          "key": "1-pdg.dot::1-pdg.dot:250",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        }
+      ]
+    },
+    {
+      "src_line": 24,
+      "dst_line": 1,
+      "src_block_id": 9,
+      "dst_block_id": 1,
+      "count": 1,
+      "labels": [
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "111669149696",
+          "dst": "30064771100",
+          "key": "1-pdg.dot::1-pdg.dot:150",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 24,
+      "dst_line": 19,
+      "src_block_id": 9,
+      "dst_block_id": 7,
+      "count": 1,
+      "labels": [
+        "\"DDG: sat\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771095",
+          "dst": "30064771100",
+          "key": "1-pdg.dot::1-pdg.dot:149",
+          "label": "\"DDG: sat\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 24,
+      "dst_line": 21,
+      "src_block_id": 9,
+      "dst_block_id": 8,
+      "count": 5,
+      "labels": [
+        "\"CDG: \""
+      ],
+      "rel_types": [
+        "control"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771097",
+          "dst": "55834574861",
+          "key": "1-pdg.dot::1-pdg.dot:237",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771097",
+          "dst": "55834574860",
+          "key": "1-pdg.dot::1-pdg.dot:238",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771097",
+          "dst": "30064771100",
+          "key": "1-pdg.dot::1-pdg.dot:242",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771097",
+          "dst": "30064771099",
+          "key": "1-pdg.dot::1-pdg.dot:243",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771097",
+          "dst": "30064771098",
+          "key": "1-pdg.dot::1-pdg.dot:244",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        }
+      ]
+    },
+    {
+      "src_line": 24,
+      "dst_line": 42,
+      "src_block_id": 9,
+      "dst_block_id": 11,
+      "count": 1,
+      "labels": [
+        "\"DDG: self.tracking\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771126",
+          "dst": "30064771100",
+          "key": "1-pdg.dot::1-pdg.dot:152",
+          "label": "\"DDG: self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 24,
+      "dst_line": 43,
+      "src_block_id": 9,
+      "dst_block_id": 11,
+      "count": 1,
+      "labels": [
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771128",
+          "dst": "30064771100",
+          "key": "1-pdg.dot::1-pdg.dot:153",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 24,
+      "dst_line": 16,
+      "src_block_id": 9,
+      "dst_block_id": 6,
+      "count": 1,
+      "labels": [
+        "\"DDG: self.tracking\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771091",
+          "dst": "30064771100",
+          "key": "1-pdg.dot::1-pdg.dot:151",
+          "label": "\"DDG: self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 26,
+      "dst_line": 1,
+      "src_block_id": 10,
+      "dst_block_id": 1,
+      "count": 2,
+      "labels": [
+        "\"DDG: \"",
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771102",
+          "key": "1-pdg.dot::1-pdg.dot:179",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771102",
+          "key": "1-pdg.dot::1-pdg.dot:177",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 26,
+      "dst_line": 24,
+      "src_block_id": 10,
+      "dst_block_id": 9,
+      "count": 3,
+      "labels": [
+        "\"CDG: \""
+      ],
+      "rel_types": [
+        "control"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771100",
+          "dst": "55834574862",
+          "key": "1-pdg.dot::1-pdg.dot:253",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771100",
+          "dst": "30064771102",
+          "key": "1-pdg.dot::1-pdg.dot:254",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771100",
+          "dst": "30064771101",
+          "key": "1-pdg.dot::1-pdg.dot:255",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        }
+      ]
+    },
+    {
+      "src_line": 26,
+      "dst_line": 43,
+      "src_block_id": 10,
+      "dst_block_id": 11,
+      "count": 1,
+      "labels": [
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771128",
+          "dst": "30064771102",
+          "key": "1-pdg.dot::1-pdg.dot:178",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 29,
+      "dst_line": 1,
+      "src_block_id": 10,
+      "dst_block_id": 1,
+      "count": 4,
+      "labels": [
+        "\"DDG: \"",
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "25769803780",
+          "key": "1-pdg.dot::1-pdg.dot:180",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "107374182401",
+          "dst": "68719476765",
+          "key": "1-pdg.dot::1-pdg.dot:203",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "107374182401",
+          "dst": "30064771107",
+          "key": "1-pdg.dot::1-pdg.dot:212",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771110",
+          "key": "1-pdg.dot::1-pdg.dot:207",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 29,
+      "dst_line": 19,
+      "src_block_id": 10,
+      "dst_block_id": 7,
+      "count": 2,
+      "labels": [
+        "\"DDG: sat\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771095",
+          "dst": "30064771110",
+          "key": "1-pdg.dot::1-pdg.dot:204",
+          "label": "\"DDG: sat\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771095",
+          "dst": "30064771108",
+          "key": "1-pdg.dot::1-pdg.dot:209",
+          "label": "\"DDG: sat\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 29,
+      "dst_line": 43,
+      "src_block_id": 10,
+      "dst_block_id": 11,
+      "count": 1,
+      "labels": [
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771128",
+          "dst": "30064771110",
+          "key": "1-pdg.dot::1-pdg.dot:208",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 32,
+      "dst_line": 1,
+      "src_block_id": 10,
+      "dst_block_id": 1,
+      "count": 1,
+      "labels": [
+        "\"DDG: \""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771116",
+          "key": "1-pdg.dot::1-pdg.dot:196",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 33,
+      "dst_line": 1,
+      "src_block_id": 10,
+      "dst_block_id": 1,
+      "count": 1,
+      "labels": [
+        "\"DDG: \""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771118",
+          "key": "1-pdg.dot::1-pdg.dot:198",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 36,
+      "dst_line": 1,
+      "src_block_id": 10,
+      "dst_block_id": 1,
+      "count": 3,
+      "labels": [
+        "\"DDG: \"",
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "25769803781",
+          "key": "1-pdg.dot::1-pdg.dot:185",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "107374182401",
+          "dst": "30064771123",
+          "key": "1-pdg.dot::1-pdg.dot:200",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771121",
+          "key": "1-pdg.dot::1-pdg.dot:192",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 36,
+      "dst_line": 43,
+      "src_block_id": 10,
+      "dst_block_id": 11,
+      "count": 1,
+      "labels": [
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771128",
+          "dst": "30064771121",
+          "key": "1-pdg.dot::1-pdg.dot:193",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 42,
+      "dst_line": 1,
+      "src_block_id": 11,
+      "dst_block_id": 1,
+      "count": 1,
+      "labels": [
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "111669149696",
+          "dst": "30064771126",
+          "key": "1-pdg.dot::1-pdg.dot:155",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 42,
+      "dst_line": 19,
+      "src_block_id": 11,
+      "dst_block_id": 7,
+      "count": 1,
+      "labels": [
+        "\"DDG: sat\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771095",
+          "dst": "30064771126",
+          "key": "1-pdg.dot::1-pdg.dot:154",
+          "label": "\"DDG: sat\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 42,
+      "dst_line": 21,
+      "src_block_id": 11,
+      "dst_block_id": 8,
+      "count": 5,
+      "labels": [
+        "\"CDG: \""
+      ],
+      "rel_types": [
+        "control"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771097",
+          "dst": "55834574871",
+          "key": "1-pdg.dot::1-pdg.dot:235",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771097",
+          "dst": "55834574870",
+          "key": "1-pdg.dot::1-pdg.dot:236",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771097",
+          "dst": "30064771125",
+          "key": "1-pdg.dot::1-pdg.dot:239",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771097",
+          "dst": "30064771124",
+          "key": "1-pdg.dot::1-pdg.dot:240",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        },
+        {
+          "src": "30064771097",
+          "dst": "30064771126",
+          "key": "1-pdg.dot::1-pdg.dot:241",
+          "label": "\"CDG: \"",
+          "attrs": {},
+          "relation": "control"
+        }
+      ]
+    },
+    {
+      "src_line": 42,
+      "dst_line": 24,
+      "src_block_id": 11,
+      "dst_block_id": 9,
+      "count": 1,
+      "labels": [
+        "\"DDG: self.tracking\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771100",
+          "dst": "30064771126",
+          "key": "1-pdg.dot::1-pdg.dot:158",
+          "label": "\"DDG: self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 42,
+      "dst_line": 16,
+      "src_block_id": 11,
+      "dst_block_id": 6,
+      "count": 1,
+      "labels": [
+        "\"DDG: self.tracking\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771091",
+          "dst": "30064771126",
+          "key": "1-pdg.dot::1-pdg.dot:156",
+          "label": "\"DDG: self.tracking\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 43,
+      "dst_line": 1,
+      "src_block_id": 11,
+      "dst_block_id": 1,
+      "count": 2,
+      "labels": [
+        "\"DDG: \"",
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771128",
+          "key": "1-pdg.dot::1-pdg.dot:176",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771128",
+          "key": "1-pdg.dot::1-pdg.dot:168",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 43,
+      "dst_line": 19,
+      "src_block_id": 11,
+      "dst_block_id": 7,
+      "count": 1,
+      "labels": [
+        "\"DDG: self.observer\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771095",
+          "dst": "30064771128",
+          "key": "1-pdg.dot::1-pdg.dot:172",
+          "label": "\"DDG: self.observer\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 43,
+      "dst_line": 14,
+      "src_block_id": 11,
+      "dst_block_id": 5,
+      "count": 2,
+      "labels": [
+        "\"DDG: self.tiers\"",
+        "\"DDG: self.satellites\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771131",
+          "dst": "30064771128",
+          "key": "1-pdg.dot::1-pdg.dot:169",
+          "label": "\"DDG: self.tiers\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771131",
+          "dst": "30064771128",
+          "key": "1-pdg.dot::1-pdg.dot:170",
+          "label": "\"DDG: self.satellites\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 43,
+      "dst_line": 16,
+      "src_block_id": 11,
+      "dst_block_id": 6,
+      "count": 1,
+      "labels": [
+        "\"DDG: self.currentTier\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771088",
+          "dst": "30064771128",
+          "key": "1-pdg.dot::1-pdg.dot:171",
+          "label": "\"DDG: self.currentTier\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 43,
+      "dst_line": 26,
+      "src_block_id": 11,
+      "dst_block_id": 10,
+      "count": 1,
+      "labels": [
+        "\"DDG: self.telescope\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771102",
+          "dst": "30064771128",
+          "key": "1-pdg.dot::1-pdg.dot:174",
+          "label": "\"DDG: self.telescope\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 43,
+      "dst_line": 29,
+      "src_block_id": 11,
+      "dst_block_id": 10,
+      "count": 1,
+      "labels": [
+        "\"DDG: self.crossTrackOffset\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771110",
+          "dst": "30064771128",
+          "key": "1-pdg.dot::1-pdg.dot:175",
+          "label": "\"DDG: self.crossTrackOffset\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 47,
+      "dst_line": 1,
+      "src_block_id": 12,
+      "dst_block_id": 1,
+      "count": 1,
+      "labels": [
+        "\"DDG: \""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771144",
+          "key": "1-pdg.dot::1-pdg.dot:110",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 47,
+      "dst_line": 4,
+      "src_block_id": 12,
+      "dst_block_id": 2,
+      "count": 1,
+      "labels": [
+        "\"DDG: time\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771074",
+          "dst": "30064771144",
+          "key": "1-pdg.dot::1-pdg.dot:109",
+          "label": "\"DDG: time\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 50,
+      "dst_line": 1,
+      "src_block_id": 13,
+      "dst_block_id": 1,
+      "count": 4,
+      "labels": [
+        "\"DDG: \"",
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771149",
+          "key": "1-pdg.dot::1-pdg.dot:114",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "107374182401",
+          "dst": "30064771147",
+          "key": "1-pdg.dot::1-pdg.dot:127",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771149",
+          "key": "1-pdg.dot::1-pdg.dot:111",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "111669149696",
+          "dst": "30064771147",
+          "key": "1-pdg.dot::1-pdg.dot:124",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 50,
+      "dst_line": 43,
+      "src_block_id": 13,
+      "dst_block_id": 11,
+      "count": 2,
+      "labels": [
+        "\"DDG: self\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771128",
+          "dst": "30064771149",
+          "key": "1-pdg.dot::1-pdg.dot:113",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771128",
+          "dst": "30064771147",
+          "key": "1-pdg.dot::1-pdg.dot:126",
+          "label": "\"DDG: self\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 50,
+      "dst_line": 16,
+      "src_block_id": 13,
+      "dst_block_id": 6,
+      "count": 2,
+      "labels": [
+        "\"DDG: self.currentTier\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771088",
+          "dst": "30064771149",
+          "key": "1-pdg.dot::1-pdg.dot:112",
+          "label": "\"DDG: self.currentTier\"",
+          "attrs": {},
+          "relation": "data"
+        },
+        {
+          "src": "30064771088",
+          "dst": "30064771147",
+          "key": "1-pdg.dot::1-pdg.dot:125",
+          "label": "\"DDG: self.currentTier\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 53,
+      "dst_line": 1,
+      "src_block_id": 14,
+      "dst_block_id": 1,
+      "count": 1,
+      "labels": [
+        "\"DDG: \""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "107374182401",
+          "dst": "30064771152",
+          "key": "1-pdg.dot::1-pdg.dot:116",
+          "label": "\"DDG: \"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 53,
+      "dst_line": 4,
+      "src_block_id": 14,
+      "dst_block_id": 2,
+      "count": 1,
+      "labels": [
+        "\"DDG: tStart\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771075",
+          "dst": "30064771152",
+          "key": "1-pdg.dot::1-pdg.dot:117",
+          "label": "\"DDG: tStart\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    },
+    {
+      "src_line": 53,
+      "dst_line": 47,
+      "src_block_id": 14,
+      "dst_block_id": 12,
+      "count": 1,
+      "labels": [
+        "\"DDG: tStop\""
+      ],
+      "rel_types": [
+        "data"
+      ],
+      "raw_edges": [
+        {
+          "src": "30064771145",
+          "dst": "30064771152",
+          "key": "1-pdg.dot::1-pdg.dot:115",
+          "label": "\"DDG: tStop\"",
+          "attrs": {},
+          "relation": "data"
+        }
+      ]
+    }
+  ],
+  "unmapped_raw_nodes": [
+    {
+      "raw_node_id": "30064771072",
+      "reason": "no_line_no"
+    }
+  ],
+  "unmapped_raw_edges": [
+    {
+      "src": "30064771072",
+      "dst": "68719476789",
+      "reason": "unmapped_endpoints",
+      "label": "\"DDG: zip\""
+    }
+  ],
+  "raw_node_to_line": {
+    "107374182401": "L1",
+    "124554051585": "L1",
+    "111669149696": "L1",
+    "111669149697": "L1",
+    "30064771075": "L4",
+    "30064771080": "L8",
+    "30064771085": "L11",
+    "25769803789": "L14",
+    "30064771145": "L47",
+    "30064771151": "L50",
+    "141733920768": "L53",
+    "30064771135": "L14",
+    "30064771152": "L53",
+    "30064771074": "L4",
+    "30064771079": "L8",
+    "30064771082": "L11",
+    "30064771144": "L47",
+    "30064771149": "L50",
+    "30064771077": "L8",
+    "30064771132": "L14",
+    "30064771134": "L14",
+    "30064771138": "L14",
+    "30064771140": "L14",
+    "30064771142": "L14",
+    "30064771095": "L19",
+    "30064771147": "L50",
+    "30064771086": "L15",
+    "30064771097": "L21",
+    "68719476789": "L14",
+    "30064771131": "L14",
+    "30064771137": "L14",
+    "30064771092": "L16",
+    "30064771100": "L24",
+    "30064771126": "L42",
+    "30064771128": "L43",
+    "30064771088": "L16",
+    "30064771091": "L16",
+    "30064771102": "L26",
+    "25769803780": "L29",
+    "30064771117": "L32",
+    "30064771119": "L33",
+    "25769803781": "L36",
+    "30064771111": "L29",
+    "30064771113": "L29",
+    "30064771115": "L29",
+    "30064771121": "L36",
+    "30064771123": "L36",
+    "30064771116": "L32",
+    "30064771118": "L33",
+    "68719476765": "L29",
+    "30064771110": "L29",
+    "30064771108": "L29",
+    "30064771107": "L29",
+    "180388626432": "L14",
+    "30064771139": "L14",
+    "30064771141": "L14",
+    "30064771094": "L19",
+    "30064771093": "L19",
+    "30064771136": "L14",
+    "55834574858": "L19",
+    "55834574857": "L19",
+    "30064771096": "L21",
+    "55834574876": "L14",
+    "55834574859": "L21",
+    "30064771098": "L24",
+    "30064771099": "L24",
+    "30064771124": "L42",
+    "30064771125": "L42",
+    "30064771087": "L16",
+    "30064771089": "L16",
+    "30064771090": "L16",
+    "55834574860": "L24",
+    "55834574861": "L24",
+    "55834574870": "L42",
+    "55834574871": "L42",
+    "30064771127": "L43",
+    "55834574854": "L16",
+    "55834574855": "L16",
+    "55834574856": "L16",
+    "30064771101": "L26",
+    "55834574872": "L43",
+    "55834574862": "L26",
+    "30064771112": "L29",
+    "30064771114": "L29",
+    "30064771120": "L36",
+    "30064771122": "L36",
+    "30064771103": "L29",
+    "30064771104": "L29",
+    "30064771109": "L29",
+    "55834574868": "L36",
+    "55834574869": "L36",
+    "55834574863": "L29",
+    "55834574864": "L29",
+    "30064771105": "L29",
+    "55834574867": "L29",
+    "55834574865": "L29",
+    "30064771106": "L29",
+    "55834574866": "L29"
+  },
+  "line_to_block": {
+    "1": 1,
+    "4": 2,
+    "8": 3,
+    "11": 4,
+    "14": 5,
+    "15": 6,
+    "16": 6,
+    "17": 6,
+    "19": 7,
+    "21": 8,
+    "24": 9,
+    "26": 10,
+    "29": 10,
+    "32": 10,
+    "33": 10,
+    "36": 10,
+    "38": 11,
+    "42": 11,
+    "43": 11,
+    "47": 12,
+    "50": 13,
+    "53": 14
+  },
+  "files": {
+    "png": "/home/zhangmanqing/wyh/LongCodeZip/experiments/long-code-completion/.semantic_block_viz/result/semantic_block_dependency_graph.png",
+    "pdf": "/home/zhangmanqing/wyh/LongCodeZip/experiments/long-code-completion/.semantic_block_viz/result/semantic_block_dependency_graph.pdf",
+    "svg": "/home/zhangmanqing/wyh/LongCodeZip/experiments/long-code-completion/.semantic_block_viz/result/semantic_block_dependency_graph.svg"
+  }
+}

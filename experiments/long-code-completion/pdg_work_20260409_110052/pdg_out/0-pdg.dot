@@ -1,0 +1,13 @@
+digraph "&lt;module&gt;" {  
+node [shape="rect"];  
+"107374182400" [label = <METHOD, 3<BR/>&lt;module&gt;> ]
+"124554051584" [label = <METHOD_RETURN, 3<BR/>ANY> ]
+"30064771072" [label = <&lt;operator&gt;.assignment, 1<BR/>print = __builtins__.print> ]
+"30064771287" [label = <&lt;operator&gt;.assignment, 3<BR/>net_install = def net_install(...)> ]
+  "30064771072" -> "124554051584"  [ label = "DDG: print"] 
+  "30064771072" -> "124554051584"  [ label = "DDG: print = __builtins__.print"] 
+  "30064771287" -> "124554051584"  [ label = "DDG: net_install"] 
+  "30064771287" -> "124554051584"  [ label = "DDG: net_install = def net_install(...)"] 
+  "107374182400" -> "30064771072"  [ label = "DDG: "] 
+  "107374182400" -> "30064771287"  [ label = "DDG: "] 
+}

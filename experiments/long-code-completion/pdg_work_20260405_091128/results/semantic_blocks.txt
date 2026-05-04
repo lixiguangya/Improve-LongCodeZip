@@ -1,0 +1,97 @@
+====================================================================================================
+语义块划分结果
+====================================================================================================
+函数：python2_test_func
+函数范围：3-40
+使用的 dot 文件数：1
+原始图：节点 63，边 132
+行级图：节点 23，边 37
+语义块数：12
+
+📦 Block 1
+----------------------------------------------------------------------------------------------------
+kind=definition  ast_kind=functiondef  depth=0  lines=3-3  pdg_connected=False  synthetic=True
+scope: ∅
+    def python2_test_func(data_dict, output_file):
+
+📦 Block 2
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=group  depth=1  lines=4-6  pdg_connected=True  synthetic=False
+scope: ∅
+        print "Start processing..."   # Python2 print
+        total = 0L   # long 类型
+
+📦 Block 3
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=for  depth=1  lines=9-9  pdg_connected=True  synthetic=False
+scope: ∅
+        for key, value in data_dict.iteritems():
+
+📦 Block 4
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=10-12  pdg_connected=True  synthetic=False
+scope: for@9 > if@10
+            if value > 10:
+                print key, value
+                total += value
+
+📦 Block 5
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=elif  depth=2  lines=13-15  pdg_connected=True  synthetic=False
+scope: for@9 > elif@13
+            elif value > 5:
+                print "medium:", key
+                total += value
+
+📦 Block 6
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=else  depth=2  lines=16-17  pdg_connected=False  synthetic=True
+scope: for@9 > else@16
+            else:
+                print "small:", key
+
+📦 Block 7
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=for  depth=1  lines=20-21  pdg_connected=True  synthetic=False
+scope: ∅
+        for i in xrange(3):
+            print i
+
+📦 Block 8
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=1  lines=24-25  pdg_connected=True  synthetic=False
+scope: if@24
+        if data_dict.has_key("error"):
+            print "found error"
+
+📦 Block 9
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=try  depth=1  lines=28-30  pdg_connected=True  synthetic=False
+scope: try@28
+        try:
+            f = open(output_file, 'w')
+            print >> f, "Result:", total   # Python2 重定向输出
+
+📦 Block 10
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=except  depth=1  lines=31-33  pdg_connected=False  synthetic=True
+scope: except@31
+        except IOError, e:
+            print "IO Error:", e
+            raise RuntimeError, "write failed"   # Python2 raise
+
+📦 Block 11
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=finally  depth=1  lines=34-38  pdg_connected=False  synthetic=True
+scope: finally@34
+        finally:
+            try:
+                f.close()
+            except:
+                pass
+
+📦 Block 12
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=return  depth=1  lines=40-40  pdg_connected=True  synthetic=False
+scope: ∅
+        return total

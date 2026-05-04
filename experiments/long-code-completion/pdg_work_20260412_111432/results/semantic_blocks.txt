@@ -1,0 +1,159 @@
+====================================================================================================
+语义块划分结果
+====================================================================================================
+函数：_retrieve_schema_from_server
+函数范围：3-67
+使用的 dot 文件数：1
+原始图：节点 163，边 362
+行级图：节点 39，边 91
+语义块数：18
+
+📦 Block 1
+----------------------------------------------------------------------------------------------------
+kind=definition  ast_kind=functiondef  depth=0  lines=3-3  pdg_connected=False  synthetic=True
+scope: ∅
+    def _retrieve_schema_from_server(self, url, conn=None):
+
+📦 Block 2
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=group  depth=1  lines=4-7  pdg_connected=True  synthetic=False
+scope: ∅
+        tmpdir = None
+        has_conn = conn is not None
+
+        self.debug('retrieving schema for SchemaCache url=%s conn=%s', url, conn)
+
+📦 Block 3
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=try  depth=1  lines=9-9  pdg_connected=True  synthetic=False
+scope: ∅
+        try:
+
+📦 Block 4
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=10-10  pdg_connected=True  synthetic=False
+scope: try@9
+            if api.env.context == 'server' and conn is None:
+
+📦 Block 5
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=try  depth=3  lines=11-13  pdg_connected=True  synthetic=False
+scope: try@9 > if@10
+                # FIXME: is this really what we want to do?
+                # This seems like this logic is in the wrong place and may conflict with other state.
+                try:
+
+📦 Block 6
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=group  depth=4  lines=14-20  pdg_connected=True  synthetic=False
+scope: try@9 > if@10 > try@13
+                    # Create a new credentials cache for this Apache process
+                    tmpdir = tempfile.mkdtemp(prefix = "tmp-")
+                    ccache_file = 'FILE:%s/ccache' % tmpdir
+                    krbcontext = krbV.default_context()
+                    principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))
+                    keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)
+                    principal = krbV.Principal(name=principal, context=krbcontext)
+
+📦 Block 7
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=group  depth=4  lines=21-25  pdg_connected=True  synthetic=False
+scope: try@9 > if@10 > try@13
+                    prev_ccache = os.environ.get('KRB5CCNAME')
+                    os.environ['KRB5CCNAME'] = ccache_file
+                    ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)
+                    ccache.init(principal)
+                    ccache.init_creds_keytab(keytab=keytab, principal=principal)
+
+📦 Block 8
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=except  depth=3  lines=26-27  pdg_connected=False  synthetic=True
+scope: try@9 > if@10 > except@26
+                except krbV.Krb5Error, e:
+                    raise StandardError('Unable to retrieve LDAP schema. Error initializing principal %s in %s: %s' % (principal.name, '/etc/httpd/conf/ipa.keytab', str(e)))
+
+📦 Block 9
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=finally  depth=3  lines=28-30  pdg_connected=False  synthetic=True
+scope: try@9 > if@10 > finally@28
+                finally:
+                    if prev_ccache is not None:
+                        os.environ['KRB5CCNAME'] = prev_ccache
+
+📦 Block 10
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=33-37  pdg_connected=True  synthetic=False
+scope: try@9 > if@33
+            if conn is None:
+                conn = IPASimpleLDAPObject(url)
+                if url.startswith('ldapi://'):
+                    conn.set_option(_ldap.OPT_HOST_NAME, api.env.host)
+                conn.sasl_interactive_bind_s(None, SASL_AUTH)
+
+📦 Block 11
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=try  depth=2  lines=39-41  pdg_connected=True  synthetic=False
+scope: try@9 > try@39
+            try:
+                schema_entry = conn.search_s('cn=schema', _ldap.SCOPE_BASE,
+                    attrlist=['attributetypes', 'objectclasses'])[0]
+
+📦 Block 12
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=except  depth=2  lines=42-47  pdg_connected=False  synthetic=True
+scope: try@9 > except@42
+            except _ldap.NO_SUCH_OBJECT:
+                # try different location for schema
+                # openldap has schema located in cn=subschema
+                self.debug('cn=schema not found, fallback to cn=subschema')
+                schema_entry = conn.search_s('cn=subschema', _ldap.SCOPE_BASE,
+                    attrlist=['attributetypes', 'objectclasses'])[0]
+
+📦 Block 13
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=48-49  pdg_connected=True  synthetic=False
+scope: try@9 > if@48
+            if not has_conn:
+                conn.unbind_s()
+
+📦 Block 14
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=except  depth=1  lines=50-52  pdg_connected=False  synthetic=True
+scope: except@50
+        except _ldap.SERVER_DOWN:
+            raise NetworkError(uri=url,
+                               error=u'LDAP Server Down, unable to retrieve LDAP schema')
+
+📦 Block 15
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=except  depth=1  lines=53-57  pdg_connected=False  synthetic=True
+scope: except@53
+        except _ldap.LDAPError, e:
+            desc = e.args[0]['desc'].strip()
+            info = e.args[0].get('info', '').strip()
+            raise DatabaseError(desc = u'uri=%s' % url,
+                                info = u'Unable to retrieve LDAP schema: %s: %s' % (desc, info))
+
+📦 Block 16
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=except  depth=1  lines=58-62  pdg_connected=False  synthetic=True
+scope: except@58
+        except IndexError:
+            # no 'cn=schema' entry in LDAP? some servers use 'cn=subschema'
+            # TODO: DS uses 'cn=schema', support for other server?
+            #       raise a more appropriate exception
+            raise
+
+📦 Block 17
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=finally  depth=1  lines=63-65  pdg_connected=False  synthetic=True
+scope: finally@63
+        finally:
+            if tmpdir:
+                shutil.rmtree(tmpdir)
+
+📦 Block 18
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=return  depth=1  lines=67-67  pdg_connected=True  synthetic=False
+scope: ∅
+        return _ldap.schema.SubSchema(schema_entry[1])

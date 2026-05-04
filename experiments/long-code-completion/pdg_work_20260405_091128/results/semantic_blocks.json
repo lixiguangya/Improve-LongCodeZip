@@ -1,0 +1,1287 @@
+{
+  "mode": "function_pdg",
+  "function_name": "python2_test_func",
+  "function_start_line": 3,
+  "function_end_line": 40,
+  "dot_files_used": [
+    "/home/zhangmanqing/wyh/LongCodeZip/experiments/long-code-completion/pdg_work_20260405_091128/pdg_out/1-pdg.dot"
+  ],
+  "raw_graph": {
+    "node_count": 63,
+    "edge_count": 132
+  },
+  "line_graph": {
+    "node_count": 23,
+    "edge_count": 37,
+    "nodes": [
+      {
+        "id": "4:4:expr:0",
+        "line_no": 4,
+        "end_line": 4,
+        "kind": "expr",
+        "text": "    print \"Start processing...\"   # Python2 print",
+        "depth": 1
+      },
+      {
+        "id": "6:6:assign:1",
+        "line_no": 6,
+        "end_line": 6,
+        "kind": "assign",
+        "text": "    total = 0L   # long 类型",
+        "depth": 1
+      },
+      {
+        "id": "9:17:for:2",
+        "line_no": 9,
+        "end_line": 17,
+        "kind": "for",
+        "text": "    for key, value in data_dict.iteritems():\n        if value > 10:\n            print key, value\n            total += value\n        elif value > 5:\n            print \"medium:\", key\n            total += value\n        else:\n            print \"small:\", key",
+        "depth": 1
+      },
+      {
+        "id": "10:17:if:3",
+        "line_no": 10,
+        "end_line": 17,
+        "kind": "if",
+        "text": "        if value > 10:\n            print key, value\n            total += value\n        elif value > 5:\n            print \"medium:\", key\n            total += value\n        else:\n            print \"small:\", key",
+        "depth": 2
+      },
+      {
+        "id": "11:11:expr:4",
+        "line_no": 11,
+        "end_line": 11,
+        "kind": "expr",
+        "text": "            print key, value",
+        "depth": 3
+      },
+      {
+        "id": "12:12:augassign:5",
+        "line_no": 12,
+        "end_line": 12,
+        "kind": "augassign",
+        "text": "            total += value",
+        "depth": 3
+      },
+      {
+        "id": "13:17:if:6",
+        "line_no": 13,
+        "end_line": 17,
+        "kind": "if",
+        "text": "        elif value > 5:\n            print \"medium:\", key\n            total += value\n        else:\n            print \"small:\", key",
+        "depth": 3
+      },
+      {
+        "id": "14:14:expr:7",
+        "line_no": 14,
+        "end_line": 14,
+        "kind": "expr",
+        "text": "            print \"medium:\", key",
+        "depth": 4
+      },
+      {
+        "id": "15:15:augassign:8",
+        "line_no": 15,
+        "end_line": 15,
+        "kind": "augassign",
+        "text": "            total += value",
+        "depth": 4
+      },
+      {
+        "id": "17:17:expr:9",
+        "line_no": 17,
+        "end_line": 17,
+        "kind": "expr",
+        "text": "            print \"small:\", key",
+        "depth": 4
+      },
+      {
+        "id": "20:21:for:10",
+        "line_no": 20,
+        "end_line": 21,
+        "kind": "for",
+        "text": "    for i in xrange(3):\n        print i",
+        "depth": 1
+      },
+      {
+        "id": "21:21:expr:11",
+        "line_no": 21,
+        "end_line": 21,
+        "kind": "expr",
+        "text": "        print i",
+        "depth": 2
+      },
+      {
+        "id": "24:25:if:12",
+        "line_no": 24,
+        "end_line": 25,
+        "kind": "if",
+        "text": "    if data_dict.has_key(\"error\"):\n        print \"found error\"",
+        "depth": 1
+      },
+      {
+        "id": "25:25:expr:13",
+        "line_no": 25,
+        "end_line": 25,
+        "kind": "expr",
+        "text": "        print \"found error\"",
+        "depth": 2
+      },
+      {
+        "id": "28:38:try:14",
+        "line_no": 28,
+        "end_line": 38,
+        "kind": "try",
+        "text": "    try:\n        f = open(output_file, 'w')\n        print >> f, \"Result:\", total   # Python2 重定向输出\n    except IOError, e:\n        print \"IO Error:\", e\n        raise RuntimeError, \"write failed\"   # Python2 raise\n    finally:\n        try:\n            f.close()\n        except:\n            pass",
+        "depth": 1
+      },
+      {
+        "id": "29:29:assign:15",
+        "line_no": 29,
+        "end_line": 29,
+        "kind": "assign",
+        "text": "        f = open(output_file, 'w')",
+        "depth": 2
+      },
+      {
+        "id": "30:30:expr:16",
+        "line_no": 30,
+        "end_line": 30,
+        "kind": "expr",
+        "text": "        print >> f, \"Result:\", total   # Python2 重定向输出",
+        "depth": 2
+      },
+      {
+        "id": "32:32:expr:17",
+        "line_no": 32,
+        "end_line": 32,
+        "kind": "expr",
+        "text": "        print \"IO Error:\", e",
+        "depth": 2
+      },
+      {
+        "id": "33:33:raise:18",
+        "line_no": 33,
+        "end_line": 33,
+        "kind": "raise",
+        "text": "        raise RuntimeError, \"write failed\"   # Python2 raise",
+        "depth": 2
+      },
+      {
+        "id": "35:38:try:19",
+        "line_no": 35,
+        "end_line": 38,
+        "kind": "try",
+        "text": "        try:\n            f.close()\n        except:\n            pass",
+        "depth": 2
+      },
+      {
+        "id": "36:36:expr:20",
+        "line_no": 36,
+        "end_line": 36,
+        "kind": "expr",
+        "text": "            f.close()",
+        "depth": 3
+      },
+      {
+        "id": "38:38:pass:21",
+        "line_no": 38,
+        "end_line": 38,
+        "kind": "pass",
+        "text": "            pass",
+        "depth": 3
+      },
+      {
+        "id": "40:40:return:22",
+        "line_no": 40,
+        "end_line": 40,
+        "kind": "return",
+        "text": "    return total",
+        "depth": 1
+      }
+    ],
+    "edges": [
+      {
+        "src": "4:4:expr:0",
+        "dst": "6:6:assign:1",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "6:6:assign:1",
+        "dst": "9:17:for:2",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "9:17:for:2",
+        "dst": "11:11:expr:4",
+        "labels": [
+          "\"DDG: key\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "9:17:for:2",
+        "dst": "14:14:expr:7",
+        "labels": [
+          "\"DDG: key\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "9:17:for:2",
+        "dst": "17:17:expr:9",
+        "labels": [
+          "\"DDG: key\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "9:17:for:2",
+        "dst": "10:17:if:3",
+        "labels": [
+          "\"CDG: \"",
+          "\"DDG: value\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "9:17:for:2",
+        "dst": "24:25:if:12",
+        "labels": [
+          "\"DDG: data_dict\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:17:if:3",
+        "dst": "11:11:expr:4",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "10:17:if:3",
+        "dst": "13:17:if:6",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:17:if:3",
+        "dst": "12:12:augassign:5",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "11:11:expr:4",
+        "dst": "12:12:augassign:5",
+        "labels": [
+          "\"DDG: value\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "12:12:augassign:5",
+        "dst": "30:30:expr:16",
+        "labels": [
+          "\"DDG: total\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "12:12:augassign:5",
+        "dst": "15:15:augassign:8",
+        "labels": [
+          "\"DDG: total\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "12:12:augassign:5",
+        "dst": "13:17:if:6",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "13:17:if:6",
+        "dst": "15:15:augassign:8",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "13:17:if:6",
+        "dst": "17:17:expr:9",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "13:17:if:6",
+        "dst": "14:14:expr:7",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "14:14:expr:7",
+        "dst": "15:15:augassign:8",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "15:15:augassign:8",
+        "dst": "30:30:expr:16",
+        "labels": [
+          "\"DDG: total\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "15:15:augassign:8",
+        "dst": "12:12:augassign:5",
+        "labels": [
+          "\"DDG: total\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "15:15:augassign:8",
+        "dst": "17:17:expr:9",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "17:17:expr:9",
+        "dst": "20:21:for:10",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "20:21:for:10",
+        "dst": "21:21:expr:11",
+        "labels": [
+          "\"CDG: \"",
+          "\"DDG: i\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "21:21:expr:11",
+        "dst": "24:25:if:12",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "24:25:if:12",
+        "dst": "25:25:expr:13",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "25:25:expr:13",
+        "dst": "28:38:try:14",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "28:38:try:14",
+        "dst": "29:29:assign:15",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "29:29:assign:15",
+        "dst": "30:30:expr:16",
+        "labels": [
+          "\"DDG: f\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "30:30:expr:16",
+        "dst": "40:40:return:22",
+        "labels": [
+          "\"DDG: total\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "30:30:expr:16",
+        "dst": "33:33:raise:18",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "30:30:expr:16",
+        "dst": "32:32:expr:17",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "30:30:expr:16",
+        "dst": "36:36:expr:20",
+        "labels": [
+          "\"DDG: f\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "32:32:expr:17",
+        "dst": "33:33:raise:18",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "33:33:raise:18",
+        "dst": "35:38:try:19",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "35:38:try:19",
+        "dst": "36:36:expr:20",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "36:36:expr:20",
+        "dst": "38:38:pass:21",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "38:38:pass:21",
+        "dst": "40:40:return:22",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "block_id": 1,
+      "kind": "definition",
+      "ast_kind": "functiondef",
+      "depth": 0,
+      "start_line": 3,
+      "end_line": 3,
+      "scope_chain": [],
+      "scope_signature": "∅",
+      "code": "    def python2_test_func(data_dict, output_file):",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 2,
+      "kind": "atomic",
+      "ast_kind": "group",
+      "depth": 1,
+      "start_line": 4,
+      "end_line": 6,
+      "scope_chain": [],
+      "scope_signature": "∅",
+      "code": "        print \"Start processing...\"   # Python2 print\n        total = 0L   # long 类型",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "4:4:expr:0",
+          "start_line": 4,
+          "end_line": 4,
+          "kind": "expr",
+          "text": "        print \"Start processing...\"   # Python2 print",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 140173497293872,
+          "raw_node_ids": [
+            "30064771075",
+            "30064771075"
+          ],
+          "raw_kinds": [
+            "print",
+            "print"
+          ],
+          "raw_labels": [
+            "<print, 4<BR/>print(&quot;Start processing...&quot;)>",
+            "<print, 4<BR/>print(&quot;Start processing...&quot;)>"
+          ]
+        },
+        {
+          "node_id": "6:6:assign:1",
+          "start_line": 6,
+          "end_line": 6,
+          "kind": "assign",
+          "text": "        total = 0L   # long 类型",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 140173497656432,
+          "raw_node_ids": [],
+          "raw_kinds": [],
+          "raw_labels": []
+        }
+      ],
+      "node_ids": [
+        "4:4:expr:0",
+        "6:6:assign:1"
+      ],
+      "stmt_count": 2
+    },
+    {
+      "block_id": 3,
+      "kind": "control",
+      "ast_kind": "for",
+      "depth": 1,
+      "start_line": 9,
+      "end_line": 9,
+      "scope_chain": [],
+      "scope_signature": "∅",
+      "code": "        for key, value in data_dict.iteritems():",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "9:17:for:2",
+          "start_line": 9,
+          "end_line": 17,
+          "kind": "for",
+          "text": "        for key, value in data_dict.iteritems():\n            if value > 10:\n                print key, value\n                total += value\n            elif value > 5:\n                print \"medium:\", key\n                total += value\n            else:\n                print \"small:\", key",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 140173497656336,
+          "raw_node_ids": [
+            "30064771088",
+            "30064771085",
+            "30064771087",
+            "30064771091",
+            "30064771093",
+            "30064771095",
+            "30064771084",
+            "30064771090",
+            "180388626433",
+            "30064771092",
+            "30064771094",
+            "30064771089",
+            "30064771088",
+            "30064771085",
+            "30064771087",
+            "30064771091",
+            "30064771093",
+            "30064771095",
+            "30064771084",
+            "30064771090",
+            "180388626433",
+            "30064771092",
+            "30064771094",
+            "30064771089"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "<operator>.assignment",
+            "__iter__",
+            "<operator>.assignment",
+            "<operator>.assignment",
+            "<operator>.assignment",
+            "iteritems",
+            "__next__",
+            "UNKNOWN",
+            "<operator>.indexAccess",
+            "<operator>.indexAccess",
+            "<operator>.fieldAccess",
+            "<operator>.assignment",
+            "<operator>.assignment",
+            "__iter__",
+            "<operator>.assignment",
+            "<operator>.assignment",
+            "<operator>.assignment",
+            "iteritems",
+            "__next__",
+            "UNKNOWN",
+            "<operator>.indexAccess",
+            "<operator>.indexAccess",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 9<BR/>tmp0 = tmp1 = data_dict.iteritems() tmp1.__iter...>",
+            "<&lt;operator&gt;.assignment, 9<BR/>tmp1 = data_dict.iteritems()>",
+            "<__iter__, 9<BR/>tmp1.__iter__()>",
+            "<&lt;operator&gt;.assignment, 9<BR/>tmp2 = tmp0.__next__()>",
+            "<&lt;operator&gt;.assignment, 9<BR/>key = tmp2[0]>",
+            "<&lt;operator&gt;.assignment, 9<BR/>value = tmp2[1]>",
+            "<iteritems, 9<BR/>data_dict.iteritems()>",
+            "<__next__, 9<BR/>tmp0.__next__()>",
+            "<UNKNOWN, 9<BR/>iteratorNonEmptyOrException>",
+            "<&lt;operator&gt;.indexAccess, 9<BR/>tmp2[0]>",
+            "<&lt;operator&gt;.indexAccess, 9<BR/>tmp2[1]>",
+            "<&lt;operator&gt;.fieldAccess, 9<BR/>tmp0.__next__>",
+            "<&lt;operator&gt;.assignment, 9<BR/>tmp0 = tmp1 = data_dict.iteritems() tmp1.__iter...>",
+            "<&lt;operator&gt;.assignment, 9<BR/>tmp1 = data_dict.iteritems()>",
+            "<__iter__, 9<BR/>tmp1.__iter__()>",
+            "<&lt;operator&gt;.assignment, 9<BR/>tmp2 = tmp0.__next__()>",
+            "<&lt;operator&gt;.assignment, 9<BR/>key = tmp2[0]>",
+            "<&lt;operator&gt;.assignment, 9<BR/>value = tmp2[1]>",
+            "<iteritems, 9<BR/>data_dict.iteritems()>",
+            "<__next__, 9<BR/>tmp0.__next__()>",
+            "<UNKNOWN, 9<BR/>iteratorNonEmptyOrException>",
+            "<&lt;operator&gt;.indexAccess, 9<BR/>tmp2[0]>",
+            "<&lt;operator&gt;.indexAccess, 9<BR/>tmp2[1]>",
+            "<&lt;operator&gt;.fieldAccess, 9<BR/>tmp0.__next__>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "9:17:for:2"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 4,
+      "kind": "control",
+      "ast_kind": "if",
+      "depth": 2,
+      "start_line": 10,
+      "end_line": 12,
+      "scope_chain": [
+        {
+          "kind": "for",
+          "label": "    for key, value in data_dict.iteritems():",
+          "line_no": 9
+        },
+        {
+          "kind": "if",
+          "label": "        if value > 10:",
+          "line_no": 10
+        }
+      ],
+      "scope_signature": "for@9 > if@10",
+      "code": "            if value > 10:\n                print key, value\n                total += value",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "10:17:if:3",
+          "start_line": 10,
+          "end_line": 17,
+          "kind": "if",
+          "text": "            if value > 10:\n                print key, value\n                total += value\n            elif value > 5:\n                print \"medium:\", key\n                total += value\n            else:\n                print \"small:\", key",
+          "depth": 2,
+          "is_exec": true,
+          "ast_node_id": 140173497656144,
+          "raw_node_ids": [
+            "30064771076",
+            "30064771076"
+          ],
+          "raw_kinds": [
+            "<operator>.greaterThan",
+            "<operator>.greaterThan"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.greaterThan, 10<BR/>value &gt; 10>",
+            "<&lt;operator&gt;.greaterThan, 10<BR/>value &gt; 10>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "10:17:if:3"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 5,
+      "kind": "control",
+      "ast_kind": "elif",
+      "depth": 2,
+      "start_line": 13,
+      "end_line": 15,
+      "scope_chain": [
+        {
+          "kind": "for",
+          "label": "    for key, value in data_dict.iteritems():",
+          "line_no": 9
+        },
+        {
+          "kind": "elif",
+          "label": "        elif value > 5:",
+          "line_no": 13
+        }
+      ],
+      "scope_signature": "for@9 > elif@13",
+      "code": "            elif value > 5:\n                print \"medium:\", key\n                total += value",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "13:17:if:6",
+          "start_line": 13,
+          "end_line": 17,
+          "kind": "if",
+          "text": "            elif value > 5:\n                print \"medium:\", key\n                total += value\n            else:\n                print \"small:\", key",
+          "depth": 3,
+          "is_exec": true,
+          "ast_node_id": 140173497662768,
+          "raw_node_ids": [
+            "30064771079",
+            "30064771079"
+          ],
+          "raw_kinds": [
+            "<operator>.greaterThan",
+            "<operator>.greaterThan"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.greaterThan, 13<BR/>value &gt; 5>",
+            "<&lt;operator&gt;.greaterThan, 13<BR/>value &gt; 5>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "13:17:if:6"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 6,
+      "kind": "control",
+      "ast_kind": "else",
+      "depth": 2,
+      "start_line": 16,
+      "end_line": 17,
+      "scope_chain": [
+        {
+          "kind": "for",
+          "label": "    for key, value in data_dict.iteritems():",
+          "line_no": 9
+        },
+        {
+          "kind": "else",
+          "label": "        else:",
+          "line_no": 16
+        }
+      ],
+      "scope_signature": "for@9 > else@16",
+      "code": "            else:\n                print \"small:\", key",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 7,
+      "kind": "control",
+      "ast_kind": "for",
+      "depth": 1,
+      "start_line": 20,
+      "end_line": 21,
+      "scope_chain": [],
+      "scope_signature": "∅",
+      "code": "        for i in xrange(3):\n            print i",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "20:21:for:10",
+          "start_line": 20,
+          "end_line": 21,
+          "kind": "for",
+          "text": "        for i in xrange(3):\n            print i",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 140173497656720,
+          "raw_node_ids": [
+            "30064771101",
+            "30064771098",
+            "30064771100",
+            "30064771104",
+            "30064771097",
+            "30064771103",
+            "180388626434",
+            "30064771102",
+            "30064771101",
+            "30064771098",
+            "30064771100",
+            "30064771104",
+            "30064771097",
+            "30064771103",
+            "180388626434",
+            "30064771102"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "<operator>.assignment",
+            "__iter__",
+            "<operator>.assignment",
+            "xrange",
+            "__next__",
+            "UNKNOWN",
+            "<operator>.fieldAccess",
+            "<operator>.assignment",
+            "<operator>.assignment",
+            "__iter__",
+            "<operator>.assignment",
+            "xrange",
+            "__next__",
+            "UNKNOWN",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 20<BR/>tmp3 = tmp4 = xrange(3) tmp4.__iter__()>",
+            "<&lt;operator&gt;.assignment, 20<BR/>tmp4 = xrange(3)>",
+            "<__iter__, 20<BR/>tmp4.__iter__()>",
+            "<&lt;operator&gt;.assignment, 20<BR/>i = tmp3.__next__()>",
+            "<xrange, 20<BR/>xrange(3)>",
+            "<__next__, 20<BR/>tmp3.__next__()>",
+            "<UNKNOWN, 20<BR/>iteratorNonEmptyOrException>",
+            "<&lt;operator&gt;.fieldAccess, 20<BR/>tmp3.__next__>",
+            "<&lt;operator&gt;.assignment, 20<BR/>tmp3 = tmp4 = xrange(3) tmp4.__iter__()>",
+            "<&lt;operator&gt;.assignment, 20<BR/>tmp4 = xrange(3)>",
+            "<__iter__, 20<BR/>tmp4.__iter__()>",
+            "<&lt;operator&gt;.assignment, 20<BR/>i = tmp3.__next__()>",
+            "<xrange, 20<BR/>xrange(3)>",
+            "<__next__, 20<BR/>tmp3.__next__()>",
+            "<UNKNOWN, 20<BR/>iteratorNonEmptyOrException>",
+            "<&lt;operator&gt;.fieldAccess, 20<BR/>tmp3.__next__>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "20:21:for:10"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 8,
+      "kind": "control",
+      "ast_kind": "if",
+      "depth": 1,
+      "start_line": 24,
+      "end_line": 25,
+      "scope_chain": [
+        {
+          "kind": "if",
+          "label": "    if data_dict.has_key(\"error\"):",
+          "line_no": 24
+        }
+      ],
+      "scope_signature": "if@24",
+      "code": "        if data_dict.has_key(\"error\"):\n            print \"found error\"",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "24:25:if:12",
+          "start_line": 24,
+          "end_line": 25,
+          "kind": "if",
+          "text": "        if data_dict.has_key(\"error\"):\n            print \"found error\"",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 140173497300016,
+          "raw_node_ids": [
+            "30064771106",
+            "30064771106"
+          ],
+          "raw_kinds": [
+            "has_key",
+            "has_key"
+          ],
+          "raw_labels": [
+            "<has_key, 24<BR/>data_dict.has_key(&quot;error&quot;)>",
+            "<has_key, 24<BR/>data_dict.has_key(&quot;error&quot;)>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "24:25:if:12"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 9,
+      "kind": "control",
+      "ast_kind": "try",
+      "depth": 1,
+      "start_line": 28,
+      "end_line": 30,
+      "scope_chain": [
+        {
+          "kind": "try",
+          "label": "    try:",
+          "line_no": 28
+        }
+      ],
+      "scope_signature": "try@28",
+      "code": "        try:\n            f = open(output_file, 'w')\n            print >> f, \"Result:\", total   # Python2 重定向输出",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "28:38:try:14",
+          "start_line": 28,
+          "end_line": 38,
+          "kind": "try",
+          "text": "        try:\n            f = open(output_file, 'w')\n            print >> f, \"Result:\", total   # Python2 重定向输出\n        except IOError, e:\n            print \"IO Error:\", e\n            raise RuntimeError, \"write failed\"   # Python2 raise\n        finally:\n            try:\n                f.close()\n            except:\n                pass",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 140173521029008,
+          "raw_node_ids": [],
+          "raw_kinds": [],
+          "raw_labels": []
+        }
+      ],
+      "node_ids": [
+        "28:38:try:14"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 10,
+      "kind": "control",
+      "ast_kind": "except",
+      "depth": 1,
+      "start_line": 31,
+      "end_line": 33,
+      "scope_chain": [
+        {
+          "kind": "except",
+          "label": "    except IOError, e:",
+          "line_no": 31
+        }
+      ],
+      "scope_signature": "except@31",
+      "code": "        except IOError, e:\n            print \"IO Error:\", e\n            raise RuntimeError, \"write failed\"   # Python2 raise",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 11,
+      "kind": "control",
+      "ast_kind": "finally",
+      "depth": 1,
+      "start_line": 34,
+      "end_line": 38,
+      "scope_chain": [
+        {
+          "kind": "finally",
+          "label": "    finally:",
+          "line_no": 34
+        }
+      ],
+      "scope_signature": "finally@34",
+      "code": "        finally:\n            try:\n                f.close()\n            except:\n                pass",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 12,
+      "kind": "atomic",
+      "ast_kind": "return",
+      "depth": 1,
+      "start_line": 40,
+      "end_line": 40,
+      "scope_chain": [],
+      "scope_signature": "∅",
+      "code": "        return total",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "40:40:return:22",
+          "start_line": 40,
+          "end_line": 40,
+          "kind": "return",
+          "text": "        return total",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 140173521029440,
+          "raw_node_ids": [
+            "141733920768",
+            "141733920768"
+          ],
+          "raw_kinds": [
+            "RETURN",
+            "RETURN"
+          ],
+          "raw_labels": [
+            "<RETURN, 40<BR/>return total>",
+            "<RETURN, 40<BR/>return total>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "40:40:return:22"
+      ],
+      "stmt_count": 1
+    }
+  ],
+  "source_lines": [
+    {
+      "line_no": 1,
+      "text": ""
+    },
+    {
+      "line_no": 2,
+      "text": ""
+    },
+    {
+      "line_no": 3,
+      "text": "\tdef python2_test_func(data_dict, output_file):"
+    },
+    {
+      "line_no": 4,
+      "text": "        print \"Start processing...\"   # Python2 print"
+    },
+    {
+      "line_no": 5,
+      "text": ""
+    },
+    {
+      "line_no": 6,
+      "text": "        total = 0L   # long 类型"
+    },
+    {
+      "line_no": 7,
+      "text": ""
+    },
+    {
+      "line_no": 8,
+      "text": "        # 遍历 dict（Python2 写法）"
+    },
+    {
+      "line_no": 9,
+      "text": "        for key, value in data_dict.iteritems():"
+    },
+    {
+      "line_no": 10,
+      "text": "            if value > 10:"
+    },
+    {
+      "line_no": 11,
+      "text": "                print key, value"
+    },
+    {
+      "line_no": 12,
+      "text": "                total += value"
+    },
+    {
+      "line_no": 13,
+      "text": "            elif value > 5:"
+    },
+    {
+      "line_no": 14,
+      "text": "                print \"medium:\", key"
+    },
+    {
+      "line_no": 15,
+      "text": "                total += value"
+    },
+    {
+      "line_no": 16,
+      "text": "            else:"
+    },
+    {
+      "line_no": 17,
+      "text": "                print \"small:\", key"
+    },
+    {
+      "line_no": 18,
+      "text": ""
+    },
+    {
+      "line_no": 19,
+      "text": "        # xrange"
+    },
+    {
+      "line_no": 20,
+      "text": "        for i in xrange(3):"
+    },
+    {
+      "line_no": 21,
+      "text": "            print i"
+    },
+    {
+      "line_no": 22,
+      "text": ""
+    },
+    {
+      "line_no": 23,
+      "text": "        # has_key"
+    },
+    {
+      "line_no": 24,
+      "text": "        if data_dict.has_key(\"error\"):"
+    },
+    {
+      "line_no": 25,
+      "text": "            print \"found error\""
+    },
+    {
+      "line_no": 26,
+      "text": ""
+    },
+    {
+      "line_no": 27,
+      "text": "        # try-except-finally"
+    },
+    {
+      "line_no": 28,
+      "text": "        try:"
+    },
+    {
+      "line_no": 29,
+      "text": "            f = open(output_file, 'w')"
+    },
+    {
+      "line_no": 30,
+      "text": "            print >> f, \"Result:\", total   # Python2 重定向输出"
+    },
+    {
+      "line_no": 31,
+      "text": "        except IOError, e:"
+    },
+    {
+      "line_no": 32,
+      "text": "            print \"IO Error:\", e"
+    },
+    {
+      "line_no": 33,
+      "text": "            raise RuntimeError, \"write failed\"   # Python2 raise"
+    },
+    {
+      "line_no": 34,
+      "text": "        finally:"
+    },
+    {
+      "line_no": 35,
+      "text": "            try:"
+    },
+    {
+      "line_no": 36,
+      "text": "                f.close()"
+    },
+    {
+      "line_no": 37,
+      "text": "            except:"
+    },
+    {
+      "line_no": 38,
+      "text": "                pass"
+    },
+    {
+      "line_no": 39,
+      "text": ""
+    },
+    {
+      "line_no": 40,
+      "text": "        return total"
+    }
+  ],
+  "source_text": "\n\n\tdef python2_test_func(data_dict, output_file):\n        print \"Start processing...\"   # Python2 print\n\n        total = 0L   # long 类型\n\n        # 遍历 dict（Python2 写法）\n        for key, value in data_dict.iteritems():\n            if value > 10:\n                print key, value\n                total += value\n            elif value > 5:\n                print \"medium:\", key\n                total += value\n            else:\n                print \"small:\", key\n\n        # xrange\n        for i in xrange(3):\n            print i\n\n        # has_key\n        if data_dict.has_key(\"error\"):\n            print \"found error\"\n\n        # try-except-finally\n        try:\n            f = open(output_file, 'w')\n            print >> f, \"Result:\", total   # Python2 重定向输出\n        except IOError, e:\n            print \"IO Error:\", e\n            raise RuntimeError, \"write failed\"   # Python2 raise\n        finally:\n            try:\n                f.close()\n            except:\n                pass\n\n        return total\n"
+}

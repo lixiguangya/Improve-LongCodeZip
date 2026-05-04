@@ -1,0 +1,311 @@
+====================================================================================================
+语义块划分结果
+====================================================================================================
+函数：net_install
+函数范围：3-140
+使用的 dot 文件数：1
+原始图：节点 290，边 789
+行级图：节点 75，边 297
+语义块数：41
+
+📦 Block 1
+----------------------------------------------------------------------------------------------------
+kind=definition  ast_kind=functiondef  depth=0  lines=3-4  pdg_connected=False  synthetic=True
+scope: ∅
+    def net_install(self,after_download):
+        # initialise the profile, from the server if any
+
+📦 Block 2
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=1  lines=5-6  pdg_connected=True  synthetic=False
+scope: if@5
+        if self.profile:
+            profile_data = self.get_data("profile",self.profile)
+
+📦 Block 3
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=elif  depth=1  lines=7-8  pdg_connected=True  synthetic=False
+scope: elif@7
+        elif self.system:
+            profile_data = self.get_data("system",self.system)
+
+📦 Block 4
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=elif  depth=1  lines=9-10  pdg_connected=True  synthetic=False
+scope: elif@9
+        elif self.image:
+            profile_data = self.get_data("image",self.image)
+
+📦 Block 5
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=else  depth=1  lines=11-13  pdg_connected=False  synthetic=True
+scope: else@11
+        else:
+            # shouldn't end up here, right?
+            profile_data = {}
+
+📦 Block 6
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=1  lines=15-17  pdg_connected=True  synthetic=False
+scope: ∅
+        if profile_data.get("kickstart","") != "":
+
+            # fix URLs
+
+📦 Block 7
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=18-22  pdg_connected=True  synthetic=False
+scope: if@15 > if@18
+            if profile_data["kickstart"][0] == "/" or profile_data["template_remote_kickstarts"]:
+               if not self.system:
+                   profile_data["kickstart"] = "http://%s/cblr/svc/op/ks/profile/%s" % (profile_data['http_server'], profile_data['name'])
+               else:
+                   profile_data["kickstart"] = "http://%s/cblr/svc/op/ks/system/%s" % (profile_data['http_server'], profile_data['name'])
+
+📦 Block 8
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=expr  depth=2  lines=25-25  pdg_connected=True  synthetic=False
+scope: if@15
+            self.get_install_tree_from_kickstart(profile_data)
+
+📦 Block 9
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=29-34  pdg_connected=True  synthetic=False
+scope: if@15 > if@29
+            if self.safe_load(profile_data,"install_tree"):
+                if not self.safe_load(profile_data,"kernel"):
+                    profile_data["kernel"] = profile_data["install_tree"] + "/images/pxeboot/vmlinuz"
+
+                if not self.safe_load(profile_data,"initrd"):
+                    profile_data["initrd"] = profile_data["install_tree"] + "/images/pxeboot/initrd.img"
+
+📦 Block 10
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=1  lines=38-44  pdg_connected=True  synthetic=False
+scope: if@38
+        if not self.is_virt:
+            if os.path.exists("/boot/efi/EFI/redhat/elilo.conf"):
+                # elilo itanium support, may actually still work
+                download = "/boot/efi/EFI/redhat"
+            else:
+                # whew, we have a sane bootloader
+                download = "/boot"
+
+📦 Block 11
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=else  depth=1  lines=46-46  pdg_connected=False  synthetic=True
+scope: ∅
+        else:
+
+📦 Block 12
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=49-50  pdg_connected=True  synthetic=False
+scope: else@46 > if@49
+            if self.virt_type is None:
+                self.virt_type = self.safe_load(profile_data,'virt_type',default=None)
+
+📦 Block 13
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=51-52  pdg_connected=True  synthetic=False
+scope: else@46 > if@51
+            if self.virt_type is None or self.virt_type == "":
+                self.virt_type = "auto"
+
+📦 Block 14
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=55-56  pdg_connected=True  synthetic=False
+scope: else@46
+            if self.virt_type == "auto":
+
+📦 Block 15
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=3  lines=57-58  pdg_connected=True  synthetic=False
+scope: else@46 > if@55 > if@57
+                if profile_data.get("xml_file","") != "":
+                    raise InfoException("xmlfile based installations are not supported")
+
+📦 Block 16
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=elif  depth=3  lines=60-62  pdg_connected=True  synthetic=False
+scope: else@46 > if@55 > elif@60
+                elif profile_data.has_key("file"):
+                    print "- ISO or Image based installation, always uses --virt-type=qemu"
+                    self.virt_type = "qemu"
+
+📦 Block 17
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=else  depth=3  lines=64-64  pdg_connected=False  synthetic=True
+scope: else@46 > if@55
+                else:
+
+📦 Block 18
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=4  lines=67-67  pdg_connected=True  synthetic=False
+scope: else@46 > if@55 > else@64
+                    if not ANCIENT_PYTHON:
+
+📦 Block 19
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=group  depth=5  lines=68-69  pdg_connected=True  synthetic=False
+scope: else@46 > if@55 > else@64 > if@67
+                        cmd = sub_process.Popen("/bin/uname -r", stdout=sub_process.PIPE, shell=True)
+                        uname_str = cmd.communicate()[0]
+
+📦 Block 20
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=5  lines=70-71  pdg_connected=True  synthetic=False
+scope: else@46 > if@55 > else@64 > if@67 > if@70
+                        if uname_str.find("xen") != -1:
+                            self.virt_type = "xenpv"
+
+📦 Block 21
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=elif  depth=5  lines=72-73  pdg_connected=True  synthetic=False
+scope: else@46 > if@55 > else@64 > if@67 > elif@72
+                        elif os.path.exists("/usr/bin/qemu-img"):
+                            self.virt_type = "qemu"
+
+📦 Block 22
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=else  depth=5  lines=74-76  pdg_connected=False  synthetic=True
+scope: else@46 > if@55 > else@64 > if@67 > else@74
+                        else:
+                            # assume Xen, we'll check to see if virt-type is really usable later.
+                            raise InfoException, "Not running a Xen kernel and qemu is not installed"
+
+📦 Block 23
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=expr  depth=3  lines=78-78  pdg_connected=True  synthetic=False
+scope: else@46 > if@55
+                print "- no virt-type specified, auto-selecting %s" % self.virt_type
+
+📦 Block 24
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=83-83  pdg_connected=True  synthetic=False
+scope: else@46
+            if self.virt_type in [ "xenpv", "xenfv" ]:
+
+📦 Block 25
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=group  depth=3  lines=84-85  pdg_connected=True  synthetic=False
+scope: else@46 > if@83
+                cmd = sub_process.Popen("uname -r", stdout=sub_process.PIPE, shell=True)
+                uname_str = cmd.communicate()[0]
+
+📦 Block 26
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=3  lines=87-88  pdg_connected=True  synthetic=False
+scope: else@46 > if@83 > if@87
+                if uname_str.find("xen") == -1:
+                   raise InfoException("kernel-xen needs to be in use")
+
+📦 Block 27
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=3  lines=90-91  pdg_connected=True  synthetic=False
+scope: else@46 > if@83 > if@90
+                if not os.path.exists("/usr/sbin/xend"):
+                   raise InfoException("xen package needs to be installed")
+
+📦 Block 28
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=assign  depth=3  lines=93-93  pdg_connected=True  synthetic=False
+scope: else@46 > if@83
+                rc = sub_process.call("/usr/sbin/xend status", stderr=None, stdout=None, shell=True)
+
+📦 Block 29
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=3  lines=94-95  pdg_connected=True  synthetic=False
+scope: else@46 > if@83 > if@94
+                if rc != 0:
+                   raise InfoException("xend needs to be started")
+
+📦 Block 30
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=98-99  pdg_connected=True  synthetic=False
+scope: else@46
+            if self.virt_type == "qemu":
+                # qemu package installed?
+
+📦 Block 31
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=3  lines=100-101  pdg_connected=True  synthetic=False
+scope: else@46 > if@98 > if@100
+                if not os.path.exists("/usr/bin/qemu-img"):
+                    raise InfoException("qemu package needs to be installed")
+
+📦 Block 32
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=group  depth=3  lines=103-104  pdg_connected=True  synthetic=False
+scope: else@46 > if@98
+                cmd = sub_process.Popen("rpm -q python-virtinst", stdout=sub_process.PIPE, shell=True)
+                version_str = cmd.communicate()[0]
+
+📦 Block 33
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=3  lines=105-106  pdg_connected=True  synthetic=False
+scope: else@46 > if@98 > if@105
+                if version_str.find("virtinst-0.1") != -1 or version_str.find("virtinst-0.0") != -1:
+                    raise InfoException("need python-virtinst >= 0.2 to do installs for qemu/kvm")
+
+📦 Block 34
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=109-111  pdg_connected=True  synthetic=False
+scope: else@46 > if@109
+            if self.virt_type == "vmware" or self.virt_type == "vmwarew":
+                # FIXME: if any vmware specific checks are required (for deps) do them here.
+                pass
+
+📦 Block 35
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=113-115  pdg_connected=True  synthetic=False
+scope: else@46 > if@113
+            if self.virt_type == "virt-image":
+                if not os.path.exists("/usr/bin/virt-image"):
+                    raise InfoException("virt-image not present, downlevel virt-install package?")
+
+📦 Block 36
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=118-122  pdg_connected=True  synthetic=False
+scope: else@46 > if@118
+            if os.path.exists("/etc/rc.d/init.d/libvirtd"):
+                rc = sub_process.call("/sbin/service libvirtd status", stdout=None, shell=True)
+                if rc != 0:
+                    # libvirt running?
+                    raise InfoException("libvirtd needs to be running")
+
+📦 Block 37
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=2  lines=125-127  pdg_connected=True  synthetic=False
+scope: else@46 > if@125
+            if self.virt_type in [ "xenpv" ]:
+                # we need to fetch the kernel/initrd to do this
+                download = "/var/lib/xen"
+
+📦 Block 38
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=elif  depth=2  lines=128-130  pdg_connected=True  synthetic=False
+scope: else@46 > elif@128
+            elif self.virt_type in [ "xenfv", "vmware", "vmwarew" ] :
+                # we are downloading sufficient metadata to initiate PXE, no D/L needed
+                download = None
+
+📦 Block 39
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=else  depth=2  lines=131-133  pdg_connected=False  synthetic=True
+scope: else@46 > else@131
+            else: # qemu
+                # fullvirt, can use set_location in virtinst library, no D/L needed yet
+                download = None
+
+📦 Block 40
+----------------------------------------------------------------------------------------------------
+kind=control  ast_kind=if  depth=1  lines=136-137  pdg_connected=True  synthetic=False
+scope: if@136
+        if not self.is_display and download is not None:
+           self.get_distro_files(profile_data, download)
+
+📦 Block 41
+----------------------------------------------------------------------------------------------------
+kind=atomic  ast_kind=expr  depth=1  lines=140-140  pdg_connected=True  synthetic=False
+scope: ∅
+        after_download(self, profile_data)

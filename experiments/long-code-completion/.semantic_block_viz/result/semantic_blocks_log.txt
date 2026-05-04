@@ -1,0 +1,33 @@
+====================================================================================================
+Semantic block log
+====================================================================================================
+function: update
+range: 1-53
+dot files: 1
+raw merged nodes: 99
+raw merged edges: 292
+raw edge roles: {'data': 213, 'control_or_cfg': 79}
+splitter line graph nodes: 20
+splitter line graph edges: 58
+dependency line graph nodes: 22
+dependency line graph edges: 87
+code lines: 22
+mapped lines: 20
+missing lines: 2
+missing line numbers: [17, 38]
+
+Block stats:
+  B1: ppl=0.94  lines=[1]  stmt=0  used_by=40  depends_on=88
+  B2: ppl=1.31  lines=[4]  stmt=1  used_by=3  depends_on=1
+  B3: ppl=1.31  lines=[8]  stmt=1  used_by=6  depends_on=3
+  B4: ppl=1.31  lines=[11]  stmt=1  used_by=5  depends_on=2
+  B5: ppl=0.62  lines=[14]  stmt=1  used_by=23  depends_on=6
+  B6: ppl=0.75  lines=[15, 16, 17]  stmt=1  used_by=30  depends_on=12
+  B7: ppl=2.0  lines=[19]  stmt=1  used_by=9  depends_on=16
+  B8: ppl=1.5  lines=[21]  stmt=1  used_by=12  depends_on=8
+  B9: ppl=1.75  lines=[24]  stmt=1  used_by=8  depends_on=10
+  B10: ppl=1.31  lines=[26, 29, 32, 33, 36]  stmt=1  used_by=30  depends_on=19
+  B11: ppl=0.0  lines=[38, 42, 43]  stmt=0  used_by=16  depends_on=17
+  B12: ppl=2.12  lines=[47]  stmt=1  used_by=4  depends_on=2
+  B13: ppl=1.75  lines=[50]  stmt=1  used_by=5  depends_on=8
+  B14: ppl=1.06  lines=[53]  stmt=1  used_by=4  depends_on=3

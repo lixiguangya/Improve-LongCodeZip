@@ -1,0 +1,21 @@
+digraph "&lt;module&gt;" {  
+node [shape="rect"];  
+"107374182400" [label = <METHOD, 3<BR/>&lt;module&gt;> ]
+"124554051584" [label = <METHOD_RETURN, 3<BR/>ANY> ]
+"30064771072" [label = <&lt;operator&gt;.assignment, 1<BR/>open = __builtins__.open> ]
+"30064771073" [label = <&lt;operator&gt;.assignment, 1<BR/>print = __builtins__.print> ]
+"30064771074" [label = <&lt;operator&gt;.assignment, 1<BR/>xrange = __builtins__.xrange> ]
+"30064771116" [label = <&lt;operator&gt;.assignment, 3<BR/>python2_test_func = def python2_test_func(...)> ]
+  "30064771072" -> "124554051584"  [ label = "DDG: open"] 
+  "30064771072" -> "124554051584"  [ label = "DDG: open = __builtins__.open"] 
+  "30064771073" -> "124554051584"  [ label = "DDG: print"] 
+  "30064771073" -> "124554051584"  [ label = "DDG: print = __builtins__.print"] 
+  "30064771074" -> "124554051584"  [ label = "DDG: xrange"] 
+  "30064771074" -> "124554051584"  [ label = "DDG: xrange = __builtins__.xrange"] 
+  "30064771116" -> "124554051584"  [ label = "DDG: python2_test_func"] 
+  "30064771116" -> "124554051584"  [ label = "DDG: python2_test_func = def python2_test_func(...)"] 
+  "107374182400" -> "30064771072"  [ label = "DDG: "] 
+  "107374182400" -> "30064771073"  [ label = "DDG: "] 
+  "107374182400" -> "30064771074"  [ label = "DDG: "] 
+  "107374182400" -> "30064771116"  [ label = "DDG: "] 
+}

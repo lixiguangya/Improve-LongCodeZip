@@ -1,0 +1,2591 @@
+{
+  "mode": "function_pdg",
+  "function_name": "_retrieve_schema_from_server",
+  "function_start_line": 3,
+  "function_end_line": 67,
+  "dot_files_used": [
+    "/home/zhangmanqing/wyh/LongCodeZip/experiments/long-code-completion/pdg_work_20260412_111432/pdg_out/1-pdg.dot"
+  ],
+  "raw_graph": {
+    "node_count": 163,
+    "edge_count": 362
+  },
+  "line_graph": {
+    "node_count": 39,
+    "edge_count": 91,
+    "nodes": [
+      {
+        "id": "4:4:assign:0",
+        "line_no": 4,
+        "end_line": 4,
+        "kind": "assign",
+        "text": "    tmpdir = None",
+        "depth": 1
+      },
+      {
+        "id": "5:5:assign:1",
+        "line_no": 5,
+        "end_line": 5,
+        "kind": "assign",
+        "text": "    has_conn = conn is not None",
+        "depth": 1
+      },
+      {
+        "id": "7:7:expr:2",
+        "line_no": 7,
+        "end_line": 7,
+        "kind": "expr",
+        "text": "    self.debug('retrieving schema for SchemaCache url=%s conn=%s', url, conn)",
+        "depth": 1
+      },
+      {
+        "id": "9:65:try:3",
+        "line_no": 9,
+        "end_line": 65,
+        "kind": "try",
+        "text": "    try:\n        if api.env.context == 'server' and conn is None:\n            # FIXME: is this really what we want to do?\n            # This seems like this logic is in the wrong place and may conflict with other state.\n            try:\n                # Create a new credentials cache for this Apache process\n                tmpdir = tempfile.mkdtemp(prefix = \"tmp-\")\n                ccache_file = 'FILE:%s/ccache' % tmpdir\n                krbcontext = krbV.default_context()\n                principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))\n                keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)\n                principal = krbV.Principal(name=principal, context=krbcontext)\n                prev_ccache = os.environ.get('KRB5CCNAME')\n                os.environ['KRB5CCNAME'] = ccache_file\n                ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)\n                ccache.init(principal)\n                ccache.init_creds_keytab(keytab=keytab, principal=principal)\n            except krbV.Krb5Error, e:\n                raise StandardError('Unable to retrieve LDAP schema. Error initializing principal %s in %s: %s' % (principal.name, '/etc/httpd/conf/ipa.keytab', str(e)))\n            finally:\n                if prev_ccache is not None:\n                    os.environ['KRB5CCNAME'] = prev_ccache\n\n\n        if conn is None:\n            conn = IPASimpleLDAPObject(url)\n            if url.startswith('ldapi://'):\n                conn.set_option(_ldap.OPT_HOST_NAME, api.env.host)\n            conn.sasl_interactive_bind_s(None, SASL_AUTH)\n\n        try:\n            schema_entry = conn.search_s('cn=schema', _ldap.SCOPE_BASE,\n                attrlist=['attributetypes', 'objectclasses'])[0]\n        except _ldap.NO_SUCH_OBJECT:\n            # try different location for schema\n            # openldap has schema located in cn=subschema\n            self.debug('cn=schema not found, fallback to cn=subschema')\n            schema_entry = conn.search_s('cn=subschema', _ldap.SCOPE_BASE,\n                attrlist=['attributetypes', 'objectclasses'])[0]\n        if not has_conn:\n            conn.unbind_s()\n    except _ldap.SERVER_DOWN:\n        raise NetworkError(uri=url,\n                           error=u'LDAP Server Down, unable to retrieve LDAP schema')\n    except _ldap.LDAPError, e:\n        desc = e.args[0]['desc'].strip()\n        info = e.args[0].get('info', '').strip()\n        raise DatabaseError(desc = u'uri=%s' % url,\n                            info = u'Unable to retrieve LDAP schema: %s: %s' % (desc, info))\n    except IndexError:\n        # no 'cn=schema' entry in LDAP? some servers use 'cn=subschema'\n        # TODO: DS uses 'cn=schema', support for other server?\n        #       raise a more appropriate exception\n        raise\n    finally:\n        if tmpdir:\n            shutil.rmtree(tmpdir)",
+        "depth": 1
+      },
+      {
+        "id": "10:30:if:4",
+        "line_no": 10,
+        "end_line": 30,
+        "kind": "if",
+        "text": "        if api.env.context == 'server' and conn is None:\n            # FIXME: is this really what we want to do?\n            # This seems like this logic is in the wrong place and may conflict with other state.\n            try:\n                # Create a new credentials cache for this Apache process\n                tmpdir = tempfile.mkdtemp(prefix = \"tmp-\")\n                ccache_file = 'FILE:%s/ccache' % tmpdir\n                krbcontext = krbV.default_context()\n                principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))\n                keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)\n                principal = krbV.Principal(name=principal, context=krbcontext)\n                prev_ccache = os.environ.get('KRB5CCNAME')\n                os.environ['KRB5CCNAME'] = ccache_file\n                ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)\n                ccache.init(principal)\n                ccache.init_creds_keytab(keytab=keytab, principal=principal)\n            except krbV.Krb5Error, e:\n                raise StandardError('Unable to retrieve LDAP schema. Error initializing principal %s in %s: %s' % (principal.name, '/etc/httpd/conf/ipa.keytab', str(e)))\n            finally:\n                if prev_ccache is not None:\n                    os.environ['KRB5CCNAME'] = prev_ccache",
+        "depth": 2
+      },
+      {
+        "id": "13:30:try:5",
+        "line_no": 13,
+        "end_line": 30,
+        "kind": "try",
+        "text": "            try:\n                # Create a new credentials cache for this Apache process\n                tmpdir = tempfile.mkdtemp(prefix = \"tmp-\")\n                ccache_file = 'FILE:%s/ccache' % tmpdir\n                krbcontext = krbV.default_context()\n                principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))\n                keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)\n                principal = krbV.Principal(name=principal, context=krbcontext)\n                prev_ccache = os.environ.get('KRB5CCNAME')\n                os.environ['KRB5CCNAME'] = ccache_file\n                ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)\n                ccache.init(principal)\n                ccache.init_creds_keytab(keytab=keytab, principal=principal)\n            except krbV.Krb5Error, e:\n                raise StandardError('Unable to retrieve LDAP schema. Error initializing principal %s in %s: %s' % (principal.name, '/etc/httpd/conf/ipa.keytab', str(e)))\n            finally:\n                if prev_ccache is not None:\n                    os.environ['KRB5CCNAME'] = prev_ccache",
+        "depth": 3
+      },
+      {
+        "id": "15:15:assign:6",
+        "line_no": 15,
+        "end_line": 15,
+        "kind": "assign",
+        "text": "                tmpdir = tempfile.mkdtemp(prefix = \"tmp-\")",
+        "depth": 4
+      },
+      {
+        "id": "16:16:assign:7",
+        "line_no": 16,
+        "end_line": 16,
+        "kind": "assign",
+        "text": "                ccache_file = 'FILE:%s/ccache' % tmpdir",
+        "depth": 4
+      },
+      {
+        "id": "17:17:assign:8",
+        "line_no": 17,
+        "end_line": 17,
+        "kind": "assign",
+        "text": "                krbcontext = krbV.default_context()",
+        "depth": 4
+      },
+      {
+        "id": "18:18:assign:9",
+        "line_no": 18,
+        "end_line": 18,
+        "kind": "assign",
+        "text": "                principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))",
+        "depth": 4
+      },
+      {
+        "id": "19:19:assign:10",
+        "line_no": 19,
+        "end_line": 19,
+        "kind": "assign",
+        "text": "                keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)",
+        "depth": 4
+      },
+      {
+        "id": "20:20:assign:11",
+        "line_no": 20,
+        "end_line": 20,
+        "kind": "assign",
+        "text": "                principal = krbV.Principal(name=principal, context=krbcontext)",
+        "depth": 4
+      },
+      {
+        "id": "21:21:assign:12",
+        "line_no": 21,
+        "end_line": 21,
+        "kind": "assign",
+        "text": "                prev_ccache = os.environ.get('KRB5CCNAME')",
+        "depth": 4
+      },
+      {
+        "id": "22:22:assign:13",
+        "line_no": 22,
+        "end_line": 22,
+        "kind": "assign",
+        "text": "                os.environ['KRB5CCNAME'] = ccache_file",
+        "depth": 4
+      },
+      {
+        "id": "23:23:assign:14",
+        "line_no": 23,
+        "end_line": 23,
+        "kind": "assign",
+        "text": "                ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)",
+        "depth": 4
+      },
+      {
+        "id": "24:24:expr:15",
+        "line_no": 24,
+        "end_line": 24,
+        "kind": "expr",
+        "text": "                ccache.init(principal)",
+        "depth": 4
+      },
+      {
+        "id": "25:25:expr:16",
+        "line_no": 25,
+        "end_line": 25,
+        "kind": "expr",
+        "text": "                ccache.init_creds_keytab(keytab=keytab, principal=principal)",
+        "depth": 4
+      },
+      {
+        "id": "27:27:raise:17",
+        "line_no": 27,
+        "end_line": 27,
+        "kind": "raise",
+        "text": "                raise StandardError('Unable to retrieve LDAP schema. Error initializing principal %s in %s: %s' % (principal.name, '/etc/httpd/conf/ipa.keytab', str(e)))",
+        "depth": 4
+      },
+      {
+        "id": "29:30:if:18",
+        "line_no": 29,
+        "end_line": 30,
+        "kind": "if",
+        "text": "                if prev_ccache is not None:\n                    os.environ['KRB5CCNAME'] = prev_ccache",
+        "depth": 4
+      },
+      {
+        "id": "30:30:assign:19",
+        "line_no": 30,
+        "end_line": 30,
+        "kind": "assign",
+        "text": "                    os.environ['KRB5CCNAME'] = prev_ccache",
+        "depth": 5
+      },
+      {
+        "id": "33:37:if:20",
+        "line_no": 33,
+        "end_line": 37,
+        "kind": "if",
+        "text": "        if conn is None:\n            conn = IPASimpleLDAPObject(url)\n            if url.startswith('ldapi://'):\n                conn.set_option(_ldap.OPT_HOST_NAME, api.env.host)\n            conn.sasl_interactive_bind_s(None, SASL_AUTH)",
+        "depth": 2
+      },
+      {
+        "id": "34:34:assign:21",
+        "line_no": 34,
+        "end_line": 34,
+        "kind": "assign",
+        "text": "            conn = IPASimpleLDAPObject(url)",
+        "depth": 3
+      },
+      {
+        "id": "35:36:if:22",
+        "line_no": 35,
+        "end_line": 36,
+        "kind": "if",
+        "text": "            if url.startswith('ldapi://'):\n                conn.set_option(_ldap.OPT_HOST_NAME, api.env.host)",
+        "depth": 3
+      },
+      {
+        "id": "36:36:expr:23",
+        "line_no": 36,
+        "end_line": 36,
+        "kind": "expr",
+        "text": "                conn.set_option(_ldap.OPT_HOST_NAME, api.env.host)",
+        "depth": 4
+      },
+      {
+        "id": "37:37:expr:24",
+        "line_no": 37,
+        "end_line": 37,
+        "kind": "expr",
+        "text": "            conn.sasl_interactive_bind_s(None, SASL_AUTH)",
+        "depth": 3
+      },
+      {
+        "id": "39:47:try:25",
+        "line_no": 39,
+        "end_line": 47,
+        "kind": "try",
+        "text": "        try:\n            schema_entry = conn.search_s('cn=schema', _ldap.SCOPE_BASE,\n                attrlist=['attributetypes', 'objectclasses'])[0]\n        except _ldap.NO_SUCH_OBJECT:\n            # try different location for schema\n            # openldap has schema located in cn=subschema\n            self.debug('cn=schema not found, fallback to cn=subschema')\n            schema_entry = conn.search_s('cn=subschema', _ldap.SCOPE_BASE,\n                attrlist=['attributetypes', 'objectclasses'])[0]",
+        "depth": 2
+      },
+      {
+        "id": "40:41:assign:26",
+        "line_no": 40,
+        "end_line": 41,
+        "kind": "assign",
+        "text": "            schema_entry = conn.search_s('cn=schema', _ldap.SCOPE_BASE,\n                attrlist=['attributetypes', 'objectclasses'])[0]",
+        "depth": 3
+      },
+      {
+        "id": "45:45:expr:27",
+        "line_no": 45,
+        "end_line": 45,
+        "kind": "expr",
+        "text": "            self.debug('cn=schema not found, fallback to cn=subschema')",
+        "depth": 3
+      },
+      {
+        "id": "46:47:assign:28",
+        "line_no": 46,
+        "end_line": 47,
+        "kind": "assign",
+        "text": "            schema_entry = conn.search_s('cn=subschema', _ldap.SCOPE_BASE,\n                attrlist=['attributetypes', 'objectclasses'])[0]",
+        "depth": 3
+      },
+      {
+        "id": "48:49:if:29",
+        "line_no": 48,
+        "end_line": 49,
+        "kind": "if",
+        "text": "        if not has_conn:\n            conn.unbind_s()",
+        "depth": 2
+      },
+      {
+        "id": "49:49:expr:30",
+        "line_no": 49,
+        "end_line": 49,
+        "kind": "expr",
+        "text": "            conn.unbind_s()",
+        "depth": 3
+      },
+      {
+        "id": "51:52:raise:31",
+        "line_no": 51,
+        "end_line": 52,
+        "kind": "raise",
+        "text": "        raise NetworkError(uri=url,\n                           error=u'LDAP Server Down, unable to retrieve LDAP schema')",
+        "depth": 2
+      },
+      {
+        "id": "54:54:assign:32",
+        "line_no": 54,
+        "end_line": 54,
+        "kind": "assign",
+        "text": "        desc = e.args[0]['desc'].strip()",
+        "depth": 2
+      },
+      {
+        "id": "55:55:assign:33",
+        "line_no": 55,
+        "end_line": 55,
+        "kind": "assign",
+        "text": "        info = e.args[0].get('info', '').strip()",
+        "depth": 2
+      },
+      {
+        "id": "56:57:raise:34",
+        "line_no": 56,
+        "end_line": 57,
+        "kind": "raise",
+        "text": "        raise DatabaseError(desc = u'uri=%s' % url,\n                            info = u'Unable to retrieve LDAP schema: %s: %s' % (desc, info))",
+        "depth": 2
+      },
+      {
+        "id": "62:62:raise:35",
+        "line_no": 62,
+        "end_line": 62,
+        "kind": "raise",
+        "text": "        raise",
+        "depth": 2
+      },
+      {
+        "id": "64:65:if:36",
+        "line_no": 64,
+        "end_line": 65,
+        "kind": "if",
+        "text": "        if tmpdir:\n            shutil.rmtree(tmpdir)",
+        "depth": 2
+      },
+      {
+        "id": "65:65:expr:37",
+        "line_no": 65,
+        "end_line": 65,
+        "kind": "expr",
+        "text": "            shutil.rmtree(tmpdir)",
+        "depth": 3
+      },
+      {
+        "id": "67:67:return:38",
+        "line_no": 67,
+        "end_line": 67,
+        "kind": "return",
+        "text": "    return _ldap.schema.SubSchema(schema_entry[1])",
+        "depth": 1
+      }
+    ],
+    "edges": [
+      {
+        "src": "4:4:assign:0",
+        "dst": "65:65:expr:37",
+        "labels": [
+          "\"DDG: tmpdir\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "4:4:assign:0",
+        "dst": "5:5:assign:1",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "5:5:assign:1",
+        "dst": "48:49:if:29",
+        "labels": [
+          "\"DDG: has_conn\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "5:5:assign:1",
+        "dst": "7:7:expr:2",
+        "labels": [
+          "\"DDG: conn\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "7:7:expr:2",
+        "dst": "33:37:if:20",
+        "labels": [
+          "\"DDG: conn\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "7:7:expr:2",
+        "dst": "10:30:if:4",
+        "labels": [
+          "\"DDG: conn\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "7:7:expr:2",
+        "dst": "34:34:assign:21",
+        "labels": [
+          "\"DDG: url\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "7:7:expr:2",
+        "dst": "51:52:raise:31",
+        "labels": [
+          "\"DDG: url\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "7:7:expr:2",
+        "dst": "45:45:expr:27",
+        "labels": [
+          "\"DDG: self\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "7:7:expr:2",
+        "dst": "56:57:raise:34",
+        "labels": [
+          "\"DDG: url\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "7:7:expr:2",
+        "dst": "9:65:try:3",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "9:65:try:3",
+        "dst": "10:30:if:4",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "18:18:assign:9",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "21:21:assign:12",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "20:20:assign:11",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "19:19:assign:10",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "25:25:expr:16",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "24:24:expr:15",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "23:23:assign:14",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "22:22:assign:13",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "17:17:assign:8",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "15:15:assign:6",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "16:16:assign:7",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "29:30:if:18",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "33:37:if:20",
+        "labels": [
+          "\"DDG: conn\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "10:30:if:4",
+        "dst": "13:30:try:5",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "13:30:try:5",
+        "dst": "15:15:assign:6",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "15:15:assign:6",
+        "dst": "16:16:assign:7",
+        "labels": [
+          "\"DDG: tmpdir\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "16:16:assign:7",
+        "dst": "22:22:assign:13",
+        "labels": [
+          "\"DDG: ccache_file\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "16:16:assign:7",
+        "dst": "23:23:assign:14",
+        "labels": [
+          "\"DDG: ccache_file\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "16:16:assign:7",
+        "dst": "65:65:expr:37",
+        "labels": [
+          "\"DDG: tmpdir\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "16:16:assign:7",
+        "dst": "17:17:assign:8",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "17:17:assign:8",
+        "dst": "19:19:assign:10",
+        "labels": [
+          "\"DDG: krbV\"",
+          "\"DDG: krbcontext\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "17:17:assign:8",
+        "dst": "18:18:assign:9",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "18:18:assign:9",
+        "dst": "20:20:assign:11",
+        "labels": [
+          "\"DDG: principal\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "18:18:assign:9",
+        "dst": "36:36:expr:23",
+        "labels": [
+          "\"DDG: api.env.host\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "18:18:assign:9",
+        "dst": "19:19:assign:10",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "19:19:assign:10",
+        "dst": "25:25:expr:16",
+        "labels": [
+          "\"DDG: keytab\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "19:19:assign:10",
+        "dst": "20:20:assign:11",
+        "labels": [
+          "\"DDG: krbcontext\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "20:20:assign:11",
+        "dst": "23:23:assign:14",
+        "labels": [
+          "\"DDG: krbcontext\"",
+          "\"DDG: principal\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "20:20:assign:11",
+        "dst": "21:21:assign:12",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "21:21:assign:12",
+        "dst": "29:30:if:18",
+        "labels": [
+          "\"DDG: prev_ccache\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "21:21:assign:12",
+        "dst": "22:22:assign:13",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "22:22:assign:13",
+        "dst": "23:23:assign:14",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "23:23:assign:14",
+        "dst": "24:24:expr:15",
+        "labels": [
+          "\"DDG: ccache\"",
+          "\"DDG: principal\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "24:24:expr:15",
+        "dst": "25:25:expr:16",
+        "labels": [
+          "\"DDG: principal\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "25:25:expr:16",
+        "dst": "27:27:raise:17",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "27:27:raise:17",
+        "dst": "29:30:if:18",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "29:30:if:18",
+        "dst": "30:30:assign:19",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "30:30:assign:19",
+        "dst": "33:37:if:20",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "33:37:if:20",
+        "dst": "40:41:assign:26",
+        "labels": [
+          "\"DDG: conn\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "33:37:if:20",
+        "dst": "35:36:if:22",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "33:37:if:20",
+        "dst": "37:37:expr:24",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "33:37:if:20",
+        "dst": "34:34:assign:21",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "34:34:assign:21",
+        "dst": "37:37:expr:24",
+        "labels": [
+          "\"DDG: conn\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "34:34:assign:21",
+        "dst": "36:36:expr:23",
+        "labels": [
+          "\"DDG: conn\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "34:34:assign:21",
+        "dst": "35:36:if:22",
+        "labels": [
+          "\"DDG: url\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "35:36:if:22",
+        "dst": "51:52:raise:31",
+        "labels": [
+          "\"DDG: url\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "35:36:if:22",
+        "dst": "56:57:raise:34",
+        "labels": [
+          "\"DDG: url\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "35:36:if:22",
+        "dst": "36:36:expr:23",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "36:36:expr:23",
+        "dst": "37:37:expr:24",
+        "labels": [
+          "\"DDG: conn\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "37:37:expr:24",
+        "dst": "40:41:assign:26",
+        "labels": [
+          "\"DDG: conn\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "37:37:expr:24",
+        "dst": "39:47:try:25",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "39:47:try:25",
+        "dst": "40:41:assign:26",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "40:41:assign:26",
+        "dst": "67:67:return:38",
+        "labels": [
+          "\"DDG: schema_entry\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "40:41:assign:26",
+        "dst": "46:47:assign:28",
+        "labels": [
+          "\"CDG: \"",
+          "\"DDG: _ldap.SCOPE_BASE\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "40:41:assign:26",
+        "dst": "45:45:expr:27",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "40:41:assign:26",
+        "dst": "49:49:expr:30",
+        "labels": [
+          "\"DDG: conn\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "45:45:expr:27",
+        "dst": "46:47:assign:28",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "46:47:assign:28",
+        "dst": "67:67:return:38",
+        "labels": [
+          "\"DDG: schema_entry\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "46:47:assign:28",
+        "dst": "49:49:expr:30",
+        "labels": [
+          "\"DDG: conn\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "46:47:assign:28",
+        "dst": "48:49:if:29",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "48:49:if:29",
+        "dst": "54:54:assign:32",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "48:49:if:29",
+        "dst": "49:49:expr:30",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "48:49:if:29",
+        "dst": "55:55:assign:33",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "48:49:if:29",
+        "dst": "56:57:raise:34",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "48:49:if:29",
+        "dst": "62:62:raise:35",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "48:49:if:29",
+        "dst": "51:52:raise:31",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "49:49:expr:30",
+        "dst": "54:54:assign:32",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "49:49:expr:30",
+        "dst": "55:55:assign:33",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "49:49:expr:30",
+        "dst": "56:57:raise:34",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "49:49:expr:30",
+        "dst": "62:62:raise:35",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "49:49:expr:30",
+        "dst": "51:52:raise:31",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "51:52:raise:31",
+        "dst": "54:54:assign:32",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "54:54:assign:32",
+        "dst": "56:57:raise:34",
+        "labels": [
+          "\"DDG: desc\""
+        ],
+        "edge_types": [
+          "pdg"
+        ]
+      },
+      {
+        "src": "54:54:assign:32",
+        "dst": "55:55:assign:33",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "55:55:assign:33",
+        "dst": "56:57:raise:34",
+        "labels": [
+          "\"DDG: info\""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "56:57:raise:34",
+        "dst": "62:62:raise:35",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "62:62:raise:35",
+        "dst": "64:65:if:36",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      },
+      {
+        "src": "64:65:if:36",
+        "dst": "65:65:expr:37",
+        "labels": [
+          "\"CDG: \""
+        ],
+        "edge_types": [
+          "pdg",
+          "seq"
+        ]
+      },
+      {
+        "src": "65:65:expr:37",
+        "dst": "67:67:return:38",
+        "labels": [],
+        "edge_types": [
+          "seq"
+        ]
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "block_id": 1,
+      "kind": "definition",
+      "ast_kind": "functiondef",
+      "depth": 0,
+      "start_line": 3,
+      "end_line": 3,
+      "scope_chain": [],
+      "scope_signature": "∅",
+      "code": "    def _retrieve_schema_from_server(self, url, conn=None):",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 2,
+      "kind": "atomic",
+      "ast_kind": "group",
+      "depth": 1,
+      "start_line": 4,
+      "end_line": 7,
+      "scope_chain": [],
+      "scope_signature": "∅",
+      "code": "        tmpdir = None\n        has_conn = conn is not None\n\n        self.debug('retrieving schema for SchemaCache url=%s conn=%s', url, conn)",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "4:4:assign:0",
+          "start_line": 4,
+          "end_line": 4,
+          "kind": "assign",
+          "text": "        tmpdir = None",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 139913372381632,
+          "raw_node_ids": [
+            "30064771073",
+            "30064771073"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "<operator>.assignment"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 4<BR/>tmpdir = None>",
+            "<&lt;operator&gt;.assignment, 4<BR/>tmpdir = None>"
+          ]
+        },
+        {
+          "node_id": "5:5:assign:1",
+          "start_line": 5,
+          "end_line": 5,
+          "kind": "assign",
+          "text": "        has_conn = conn is not None",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 139913372381536,
+          "raw_node_ids": [
+            "30064771075",
+            "30064771074",
+            "30064771075",
+            "30064771074"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "<operator>.isNot",
+            "<operator>.assignment",
+            "<operator>.isNot"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 5<BR/>has_conn = conn is not None>",
+            "<&lt;operator&gt;.isNot, 5<BR/>conn is not None>",
+            "<&lt;operator&gt;.assignment, 5<BR/>has_conn = conn is not None>",
+            "<&lt;operator&gt;.isNot, 5<BR/>conn is not None>"
+          ]
+        },
+        {
+          "node_id": "7:7:expr:2",
+          "start_line": 7,
+          "end_line": 7,
+          "kind": "expr",
+          "text": "        self.debug('retrieving schema for SchemaCache url=%s conn=%s', url, conn)",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 139913372381296,
+          "raw_node_ids": [
+            "30064771077",
+            "30064771077"
+          ],
+          "raw_kinds": [
+            "debug",
+            "debug"
+          ],
+          "raw_labels": [
+            "<debug, 7<BR/>self.debug('retrieving schema for SchemaCache u...>",
+            "<debug, 7<BR/>self.debug('retrieving schema for SchemaCache u...>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "4:4:assign:0",
+        "5:5:assign:1",
+        "7:7:expr:2"
+      ],
+      "stmt_count": 3
+    },
+    {
+      "block_id": 3,
+      "kind": "control",
+      "ast_kind": "try",
+      "depth": 1,
+      "start_line": 9,
+      "end_line": 9,
+      "scope_chain": [],
+      "scope_signature": "∅",
+      "code": "        try:",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "9:65:try:3",
+          "start_line": 9,
+          "end_line": 65,
+          "kind": "try",
+          "text": "        try:\n            if api.env.context == 'server' and conn is None:\n                # FIXME: is this really what we want to do?\n                # This seems like this logic is in the wrong place and may conflict with other state.\n                try:\n                    # Create a new credentials cache for this Apache process\n                    tmpdir = tempfile.mkdtemp(prefix = \"tmp-\")\n                    ccache_file = 'FILE:%s/ccache' % tmpdir\n                    krbcontext = krbV.default_context()\n                    principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))\n                    keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)\n                    principal = krbV.Principal(name=principal, context=krbcontext)\n                    prev_ccache = os.environ.get('KRB5CCNAME')\n                    os.environ['KRB5CCNAME'] = ccache_file\n                    ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)\n                    ccache.init(principal)\n                    ccache.init_creds_keytab(keytab=keytab, principal=principal)\n                except krbV.Krb5Error, e:\n                    raise StandardError('Unable to retrieve LDAP schema. Error initializing principal %s in %s: %s' % (principal.name, '/etc/httpd/conf/ipa.keytab', str(e)))\n                finally:\n                    if prev_ccache is not None:\n                        os.environ['KRB5CCNAME'] = prev_ccache\n\n\n            if conn is None:\n                conn = IPASimpleLDAPObject(url)\n                if url.startswith('ldapi://'):\n                    conn.set_option(_ldap.OPT_HOST_NAME, api.env.host)\n                conn.sasl_interactive_bind_s(None, SASL_AUTH)\n\n            try:\n                schema_entry = conn.search_s('cn=schema', _ldap.SCOPE_BASE,\n                    attrlist=['attributetypes', 'objectclasses'])[0]\n            except _ldap.NO_SUCH_OBJECT:\n                # try different location for schema\n                # openldap has schema located in cn=subschema\n                self.debug('cn=schema not found, fallback to cn=subschema')\n                schema_entry = conn.search_s('cn=subschema', _ldap.SCOPE_BASE,\n                    attrlist=['attributetypes', 'objectclasses'])[0]\n            if not has_conn:\n                conn.unbind_s()\n        except _ldap.SERVER_DOWN:\n            raise NetworkError(uri=url,\n                               error=u'LDAP Server Down, unable to retrieve LDAP schema')\n        except _ldap.LDAPError, e:\n            desc = e.args[0]['desc'].strip()\n            info = e.args[0].get('info', '').strip()\n            raise DatabaseError(desc = u'uri=%s' % url,\n                                info = u'Unable to retrieve LDAP schema: %s: %s' % (desc, info))\n        except IndexError:\n            # no 'cn=schema' entry in LDAP? some servers use 'cn=subschema'\n            # TODO: DS uses 'cn=schema', support for other server?\n            #       raise a more appropriate exception\n            raise\n        finally:\n            if tmpdir:\n                shutil.rmtree(tmpdir)",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 139913372380864,
+          "raw_node_ids": [],
+          "raw_kinds": [],
+          "raw_labels": []
+        }
+      ],
+      "node_ids": [
+        "9:65:try:3"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 4,
+      "kind": "control",
+      "ast_kind": "if",
+      "depth": 2,
+      "start_line": 10,
+      "end_line": 10,
+      "scope_chain": [
+        {
+          "kind": "try",
+          "label": "    try:",
+          "line_no": 9
+        }
+      ],
+      "scope_signature": "try@9",
+      "code": "            if api.env.context == 'server' and conn is None:",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "10:30:if:4",
+          "start_line": 10,
+          "end_line": 30,
+          "kind": "if",
+          "text": "            if api.env.context == 'server' and conn is None:\n                # FIXME: is this really what we want to do?\n                # This seems like this logic is in the wrong place and may conflict with other state.\n                try:\n                    # Create a new credentials cache for this Apache process\n                    tmpdir = tempfile.mkdtemp(prefix = \"tmp-\")\n                    ccache_file = 'FILE:%s/ccache' % tmpdir\n                    krbcontext = krbV.default_context()\n                    principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))\n                    keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)\n                    principal = krbV.Principal(name=principal, context=krbcontext)\n                    prev_ccache = os.environ.get('KRB5CCNAME')\n                    os.environ['KRB5CCNAME'] = ccache_file\n                    ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)\n                    ccache.init(principal)\n                    ccache.init_creds_keytab(keytab=keytab, principal=principal)\n                except krbV.Krb5Error, e:\n                    raise StandardError('Unable to retrieve LDAP schema. Error initializing principal %s in %s: %s' % (principal.name, '/etc/httpd/conf/ipa.keytab', str(e)))\n                finally:\n                    if prev_ccache is not None:\n                        os.environ['KRB5CCNAME'] = prev_ccache",
+          "depth": 2,
+          "is_exec": true,
+          "ast_node_id": 139913372380816,
+          "raw_node_ids": [
+            "30064771082",
+            "30064771080",
+            "30064771081",
+            "30064771082",
+            "30064771080",
+            "30064771081"
+          ],
+          "raw_kinds": [
+            "<operator>.logicalAnd",
+            "<operator>.equals",
+            "<operator>.is",
+            "<operator>.logicalAnd",
+            "<operator>.equals",
+            "<operator>.is"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.logicalAnd, 10<BR/>api.env.context == 'server' and conn is None>",
+            "<&lt;operator&gt;.equals, 10<BR/>api.env.context == 'server'>",
+            "<&lt;operator&gt;.is, 10<BR/>conn is None>",
+            "<&lt;operator&gt;.logicalAnd, 10<BR/>api.env.context == 'server' and conn is None>",
+            "<&lt;operator&gt;.equals, 10<BR/>api.env.context == 'server'>",
+            "<&lt;operator&gt;.is, 10<BR/>conn is None>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "10:30:if:4"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 5,
+      "kind": "control",
+      "ast_kind": "try",
+      "depth": 3,
+      "start_line": 11,
+      "end_line": 13,
+      "scope_chain": [
+        {
+          "kind": "try",
+          "label": "    try:",
+          "line_no": 9
+        },
+        {
+          "kind": "if",
+          "label": "        if api.env.context == 'server' and conn is None:\n            # FIXME: is this really what we want to do?\n            # This seems like this logic is in the wrong place and may conflict with other state.",
+          "line_no": 10
+        }
+      ],
+      "scope_signature": "try@9 > if@10",
+      "code": "                # FIXME: is this really what we want to do?\n                # This seems like this logic is in the wrong place and may conflict with other state.\n                try:",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "13:30:try:5",
+          "start_line": 13,
+          "end_line": 30,
+          "kind": "try",
+          "text": "                try:\n                    # Create a new credentials cache for this Apache process\n                    tmpdir = tempfile.mkdtemp(prefix = \"tmp-\")\n                    ccache_file = 'FILE:%s/ccache' % tmpdir\n                    krbcontext = krbV.default_context()\n                    principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))\n                    keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)\n                    principal = krbV.Principal(name=principal, context=krbcontext)\n                    prev_ccache = os.environ.get('KRB5CCNAME')\n                    os.environ['KRB5CCNAME'] = ccache_file\n                    ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)\n                    ccache.init(principal)\n                    ccache.init_creds_keytab(keytab=keytab, principal=principal)\n                except krbV.Krb5Error, e:\n                    raise StandardError('Unable to retrieve LDAP schema. Error initializing principal %s in %s: %s' % (principal.name, '/etc/httpd/conf/ipa.keytab', str(e)))\n                finally:\n                    if prev_ccache is not None:\n                        os.environ['KRB5CCNAME'] = prev_ccache",
+          "depth": 3,
+          "is_exec": true,
+          "ast_node_id": 139913372380288,
+          "raw_node_ids": [],
+          "raw_kinds": [],
+          "raw_labels": []
+        }
+      ],
+      "node_ids": [
+        "13:30:try:5"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 6,
+      "kind": "atomic",
+      "ast_kind": "group",
+      "depth": 4,
+      "start_line": 14,
+      "end_line": 20,
+      "scope_chain": [
+        {
+          "kind": "try",
+          "label": "    try:",
+          "line_no": 9
+        },
+        {
+          "kind": "if",
+          "label": "        if api.env.context == 'server' and conn is None:\n            # FIXME: is this really what we want to do?\n            # This seems like this logic is in the wrong place and may conflict with other state.",
+          "line_no": 10
+        },
+        {
+          "kind": "try",
+          "label": "            try:\n                # Create a new credentials cache for this Apache process",
+          "line_no": 13
+        }
+      ],
+      "scope_signature": "try@9 > if@10 > try@13",
+      "code": "                    # Create a new credentials cache for this Apache process\n                    tmpdir = tempfile.mkdtemp(prefix = \"tmp-\")\n                    ccache_file = 'FILE:%s/ccache' % tmpdir\n                    krbcontext = krbV.default_context()\n                    principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))\n                    keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)\n                    principal = krbV.Principal(name=principal, context=krbcontext)",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "15:15:assign:6",
+          "start_line": 15,
+          "end_line": 15,
+          "kind": "assign",
+          "text": "                    tmpdir = tempfile.mkdtemp(prefix = \"tmp-\")",
+          "depth": 4,
+          "is_exec": true,
+          "ast_node_id": 139913372380240,
+          "raw_node_ids": [
+            "30064771085",
+            "30064771084",
+            "30064771083",
+            "30064771085",
+            "30064771084",
+            "30064771083"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "mkdtemp",
+            "<operator>.fieldAccess",
+            "<operator>.assignment",
+            "mkdtemp",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 15<BR/>tmpdir = tempfile.mkdtemp(prefix = &quot;tmp-&quot;)>",
+            "<mkdtemp, 15<BR/>tempfile.mkdtemp(prefix = &quot;tmp-&quot;)>",
+            "<&lt;operator&gt;.fieldAccess, 15<BR/>tempfile.mkdtemp>",
+            "<&lt;operator&gt;.assignment, 15<BR/>tmpdir = tempfile.mkdtemp(prefix = &quot;tmp-&quot;)>",
+            "<mkdtemp, 15<BR/>tempfile.mkdtemp(prefix = &quot;tmp-&quot;)>",
+            "<&lt;operator&gt;.fieldAccess, 15<BR/>tempfile.mkdtemp>"
+          ]
+        },
+        {
+          "node_id": "16:16:assign:7",
+          "start_line": 16,
+          "end_line": 16,
+          "kind": "assign",
+          "text": "                    ccache_file = 'FILE:%s/ccache' % tmpdir",
+          "depth": 4,
+          "is_exec": true,
+          "ast_node_id": 139913372379952,
+          "raw_node_ids": [
+            "30064771087",
+            "30064771086",
+            "30064771087",
+            "30064771086"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "<operator>.modulo",
+            "<operator>.assignment",
+            "<operator>.modulo"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 16<BR/>ccache_file = 'FILE:%s/ccache' % tmpdir>",
+            "<&lt;operator&gt;.modulo, 16<BR/>'FILE:%s/ccache' % tmpdir>",
+            "<&lt;operator&gt;.assignment, 16<BR/>ccache_file = 'FILE:%s/ccache' % tmpdir>",
+            "<&lt;operator&gt;.modulo, 16<BR/>'FILE:%s/ccache' % tmpdir>"
+          ]
+        },
+        {
+          "node_id": "17:17:assign:8",
+          "start_line": 17,
+          "end_line": 17,
+          "kind": "assign",
+          "text": "                    krbcontext = krbV.default_context()",
+          "depth": 4,
+          "is_exec": true,
+          "ast_node_id": 139913372379712,
+          "raw_node_ids": [
+            "30064771090",
+            "30064771089",
+            "30064771088",
+            "30064771090",
+            "30064771089",
+            "30064771088"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "default_context",
+            "<operator>.fieldAccess",
+            "<operator>.assignment",
+            "default_context",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 17<BR/>krbcontext = krbV.default_context()>",
+            "<default_context, 17<BR/>krbV.default_context()>",
+            "<&lt;operator&gt;.fieldAccess, 17<BR/>krbV.default_context>",
+            "<&lt;operator&gt;.assignment, 17<BR/>krbcontext = krbV.default_context()>",
+            "<default_context, 17<BR/>krbV.default_context()>",
+            "<&lt;operator&gt;.fieldAccess, 17<BR/>krbV.default_context>"
+          ]
+        },
+        {
+          "node_id": "18:18:assign:9",
+          "start_line": 18,
+          "end_line": 18,
+          "kind": "assign",
+          "text": "                    principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))",
+          "depth": 4,
+          "is_exec": true,
+          "ast_node_id": 139913372379424,
+          "raw_node_ids": [
+            "30064771098",
+            "30064771097",
+            "30064771096",
+            "30064771095",
+            "30064771092",
+            "30064771094",
+            "30064771091",
+            "30064771093",
+            "30064771098",
+            "30064771097",
+            "30064771096",
+            "30064771095",
+            "30064771092",
+            "30064771094",
+            "30064771091",
+            "30064771093"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "str",
+            "<operator>.modulo",
+            "<operator>.tupleLiteral",
+            "<operator>.fieldAccess",
+            "<operator>.fieldAccess",
+            "<operator>.fieldAccess",
+            "<operator>.fieldAccess",
+            "<operator>.assignment",
+            "str",
+            "<operator>.modulo",
+            "<operator>.tupleLiteral",
+            "<operator>.fieldAccess",
+            "<operator>.fieldAccess",
+            "<operator>.fieldAccess",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 18<BR/>principal = str('HTTP/%s@%s' % (api.env.host,ap...>",
+            "<str, 18<BR/>str('HTTP/%s@%s' % (api.env.host,api.env.realm))>",
+            "<&lt;operator&gt;.modulo, 18<BR/>'HTTP/%s@%s' % (api.env.host, api.env.realm)>",
+            "<&lt;operator&gt;.tupleLiteral, 18<BR/>(api.env.host, api.env.realm)>",
+            "<&lt;operator&gt;.fieldAccess, 18<BR/>api.env.host>",
+            "<&lt;operator&gt;.fieldAccess, 18<BR/>api.env.realm>",
+            "<&lt;operator&gt;.fieldAccess, 18<BR/>api.env>",
+            "<&lt;operator&gt;.fieldAccess, 18<BR/>api.env>",
+            "<&lt;operator&gt;.assignment, 18<BR/>principal = str('HTTP/%s@%s' % (api.env.host,ap...>",
+            "<str, 18<BR/>str('HTTP/%s@%s' % (api.env.host,api.env.realm))>",
+            "<&lt;operator&gt;.modulo, 18<BR/>'HTTP/%s@%s' % (api.env.host, api.env.realm)>",
+            "<&lt;operator&gt;.tupleLiteral, 18<BR/>(api.env.host, api.env.realm)>",
+            "<&lt;operator&gt;.fieldAccess, 18<BR/>api.env.host>",
+            "<&lt;operator&gt;.fieldAccess, 18<BR/>api.env.realm>",
+            "<&lt;operator&gt;.fieldAccess, 18<BR/>api.env>",
+            "<&lt;operator&gt;.fieldAccess, 18<BR/>api.env>"
+          ]
+        },
+        {
+          "node_id": "19:19:assign:10",
+          "start_line": 19,
+          "end_line": 19,
+          "kind": "assign",
+          "text": "                    keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)",
+          "depth": 4,
+          "is_exec": true,
+          "ast_node_id": 139913372378800,
+          "raw_node_ids": [
+            "30064771101",
+            "30064771100",
+            "30064771099",
+            "30064771101",
+            "30064771100",
+            "30064771099"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "Keytab",
+            "<operator>.fieldAccess",
+            "<operator>.assignment",
+            "Keytab",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 19<BR/>keytab = krbV.Keytab(name = '/etc/httpd/conf/ip...>",
+            "<Keytab, 19<BR/>krbV.Keytab(name = '/etc/httpd/conf/ipa.keytab'...>",
+            "<&lt;operator&gt;.fieldAccess, 19<BR/>krbV.Keytab>",
+            "<&lt;operator&gt;.assignment, 19<BR/>keytab = krbV.Keytab(name = '/etc/httpd/conf/ip...>",
+            "<Keytab, 19<BR/>krbV.Keytab(name = '/etc/httpd/conf/ipa.keytab'...>",
+            "<&lt;operator&gt;.fieldAccess, 19<BR/>krbV.Keytab>"
+          ]
+        },
+        {
+          "node_id": "20:20:assign:11",
+          "start_line": 20,
+          "end_line": 20,
+          "kind": "assign",
+          "text": "                    principal = krbV.Principal(name=principal, context=krbcontext)",
+          "depth": 4,
+          "is_exec": true,
+          "ast_node_id": 139913372378368,
+          "raw_node_ids": [
+            "30064771104",
+            "30064771103",
+            "30064771102",
+            "30064771104",
+            "30064771103",
+            "30064771102"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "Principal",
+            "<operator>.fieldAccess",
+            "<operator>.assignment",
+            "Principal",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 20<BR/>principal = krbV.Principal(name = principal, co...>",
+            "<Principal, 20<BR/>krbV.Principal(name = principal, context = krbc...>",
+            "<&lt;operator&gt;.fieldAccess, 20<BR/>krbV.Principal>",
+            "<&lt;operator&gt;.assignment, 20<BR/>principal = krbV.Principal(name = principal, co...>",
+            "<Principal, 20<BR/>krbV.Principal(name = principal, context = krbc...>",
+            "<&lt;operator&gt;.fieldAccess, 20<BR/>krbV.Principal>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "15:15:assign:6",
+        "16:16:assign:7",
+        "17:17:assign:8",
+        "18:18:assign:9",
+        "19:19:assign:10",
+        "20:20:assign:11"
+      ],
+      "stmt_count": 6
+    },
+    {
+      "block_id": 7,
+      "kind": "atomic",
+      "ast_kind": "group",
+      "depth": 4,
+      "start_line": 21,
+      "end_line": 25,
+      "scope_chain": [
+        {
+          "kind": "try",
+          "label": "    try:",
+          "line_no": 9
+        },
+        {
+          "kind": "if",
+          "label": "        if api.env.context == 'server' and conn is None:\n            # FIXME: is this really what we want to do?\n            # This seems like this logic is in the wrong place and may conflict with other state.",
+          "line_no": 10
+        },
+        {
+          "kind": "try",
+          "label": "            try:\n                # Create a new credentials cache for this Apache process",
+          "line_no": 13
+        }
+      ],
+      "scope_signature": "try@9 > if@10 > try@13",
+      "code": "                    prev_ccache = os.environ.get('KRB5CCNAME')\n                    os.environ['KRB5CCNAME'] = ccache_file\n                    ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)\n                    ccache.init(principal)\n                    ccache.init_creds_keytab(keytab=keytab, principal=principal)",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "21:21:assign:12",
+          "start_line": 21,
+          "end_line": 21,
+          "kind": "assign",
+          "text": "                    prev_ccache = os.environ.get('KRB5CCNAME')",
+          "depth": 4,
+          "is_exec": true,
+          "ast_node_id": 139913372377936,
+          "raw_node_ids": [
+            "30064771109",
+            "30064771106",
+            "30064771108",
+            "30064771105",
+            "30064771107",
+            "30064771109",
+            "30064771106",
+            "30064771108",
+            "30064771105",
+            "30064771107"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "<operator>.assignment",
+            "get",
+            "<operator>.fieldAccess",
+            "<operator>.fieldAccess",
+            "<operator>.assignment",
+            "<operator>.assignment",
+            "get",
+            "<operator>.fieldAccess",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 21<BR/>prev_ccache = tmp0 = os.environ os.environ.get(...>",
+            "<&lt;operator&gt;.assignment, 21<BR/>tmp0 = os.environ>",
+            "<get, 21<BR/>os.environ.get('KRB5CCNAME')>",
+            "<&lt;operator&gt;.fieldAccess, 21<BR/>os.environ>",
+            "<&lt;operator&gt;.fieldAccess, 21<BR/>tmp0.get>",
+            "<&lt;operator&gt;.assignment, 21<BR/>prev_ccache = tmp0 = os.environ os.environ.get(...>",
+            "<&lt;operator&gt;.assignment, 21<BR/>tmp0 = os.environ>",
+            "<get, 21<BR/>os.environ.get('KRB5CCNAME')>",
+            "<&lt;operator&gt;.fieldAccess, 21<BR/>os.environ>",
+            "<&lt;operator&gt;.fieldAccess, 21<BR/>tmp0.get>"
+          ]
+        },
+        {
+          "node_id": "22:22:assign:13",
+          "start_line": 22,
+          "end_line": 22,
+          "kind": "assign",
+          "text": "                    os.environ['KRB5CCNAME'] = ccache_file",
+          "depth": 4,
+          "is_exec": true,
+          "ast_node_id": 139913372377600,
+          "raw_node_ids": [
+            "30064771112",
+            "30064771111",
+            "30064771110",
+            "30064771112",
+            "30064771111",
+            "30064771110"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "<operator>.indexAccess",
+            "<operator>.fieldAccess",
+            "<operator>.assignment",
+            "<operator>.indexAccess",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 22<BR/>os.environ['KRB5CCNAME'] = ccache_file>",
+            "<&lt;operator&gt;.indexAccess, 22<BR/>os.environ['KRB5CCNAME']>",
+            "<&lt;operator&gt;.fieldAccess, 22<BR/>os.environ>",
+            "<&lt;operator&gt;.assignment, 22<BR/>os.environ['KRB5CCNAME'] = ccache_file>",
+            "<&lt;operator&gt;.indexAccess, 22<BR/>os.environ['KRB5CCNAME']>",
+            "<&lt;operator&gt;.fieldAccess, 22<BR/>os.environ>"
+          ]
+        },
+        {
+          "node_id": "23:23:assign:14",
+          "start_line": 23,
+          "end_line": 23,
+          "kind": "assign",
+          "text": "                    ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)",
+          "depth": 4,
+          "is_exec": true,
+          "ast_node_id": 139913372377312,
+          "raw_node_ids": [
+            "30064771115",
+            "30064771114",
+            "30064771113",
+            "30064771115",
+            "30064771114",
+            "30064771113"
+          ],
+          "raw_kinds": [
+            "<operator>.assignment",
+            "CCache",
+            "<operator>.fieldAccess",
+            "<operator>.assignment",
+            "CCache",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.assignment, 23<BR/>ccache = krbV.CCache(name = ccache_file, contex...>",
+            "<CCache, 23<BR/>krbV.CCache(name = ccache_file, context = krbco...>",
+            "<&lt;operator&gt;.fieldAccess, 23<BR/>krbV.CCache>",
+            "<&lt;operator&gt;.assignment, 23<BR/>ccache = krbV.CCache(name = ccache_file, contex...>",
+            "<CCache, 23<BR/>krbV.CCache(name = ccache_file, context = krbco...>",
+            "<&lt;operator&gt;.fieldAccess, 23<BR/>krbV.CCache>"
+          ]
+        },
+        {
+          "node_id": "24:24:expr:15",
+          "start_line": 24,
+          "end_line": 24,
+          "kind": "expr",
+          "text": "                    ccache.init(principal)",
+          "depth": 4,
+          "is_exec": true,
+          "ast_node_id": 139913372376784,
+          "raw_node_ids": [
+            "30064771117",
+            "30064771116",
+            "30064771117",
+            "30064771116"
+          ],
+          "raw_kinds": [
+            "init",
+            "<operator>.fieldAccess",
+            "init",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<init, 24<BR/>ccache.init(principal)>",
+            "<&lt;operator&gt;.fieldAccess, 24<BR/>ccache.init>",
+            "<init, 24<BR/>ccache.init(principal)>",
+            "<&lt;operator&gt;.fieldAccess, 24<BR/>ccache.init>"
+          ]
+        },
+        {
+          "node_id": "25:25:expr:16",
+          "start_line": 25,
+          "end_line": 25,
+          "kind": "expr",
+          "text": "                    ccache.init_creds_keytab(keytab=keytab, principal=principal)",
+          "depth": 4,
+          "is_exec": true,
+          "ast_node_id": 139913372376496,
+          "raw_node_ids": [
+            "30064771119",
+            "30064771118",
+            "30064771119",
+            "30064771118"
+          ],
+          "raw_kinds": [
+            "init_creds_keytab",
+            "<operator>.fieldAccess",
+            "init_creds_keytab",
+            "<operator>.fieldAccess"
+          ],
+          "raw_labels": [
+            "<init_creds_keytab, 25<BR/>ccache.init_creds_keytab(keytab = keytab, princ...>",
+            "<&lt;operator&gt;.fieldAccess, 25<BR/>ccache.init_creds_keytab>",
+            "<init_creds_keytab, 25<BR/>ccache.init_creds_keytab(keytab = keytab, princ...>",
+            "<&lt;operator&gt;.fieldAccess, 25<BR/>ccache.init_creds_keytab>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "21:21:assign:12",
+        "22:22:assign:13",
+        "23:23:assign:14",
+        "24:24:expr:15",
+        "25:25:expr:16"
+      ],
+      "stmt_count": 5
+    },
+    {
+      "block_id": 8,
+      "kind": "control",
+      "ast_kind": "except",
+      "depth": 3,
+      "start_line": 26,
+      "end_line": 27,
+      "scope_chain": [
+        {
+          "kind": "try",
+          "label": "    try:",
+          "line_no": 9
+        },
+        {
+          "kind": "if",
+          "label": "        if api.env.context == 'server' and conn is None:\n            # FIXME: is this really what we want to do?\n            # This seems like this logic is in the wrong place and may conflict with other state.",
+          "line_no": 10
+        },
+        {
+          "kind": "except",
+          "label": "            except krbV.Krb5Error, e:",
+          "line_no": 26
+        }
+      ],
+      "scope_signature": "try@9 > if@10 > except@26",
+      "code": "                except krbV.Krb5Error, e:\n                    raise StandardError('Unable to retrieve LDAP schema. Error initializing principal %s in %s: %s' % (principal.name, '/etc/httpd/conf/ipa.keytab', str(e)))",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 9,
+      "kind": "control",
+      "ast_kind": "finally",
+      "depth": 3,
+      "start_line": 28,
+      "end_line": 30,
+      "scope_chain": [
+        {
+          "kind": "try",
+          "label": "    try:",
+          "line_no": 9
+        },
+        {
+          "kind": "if",
+          "label": "        if api.env.context == 'server' and conn is None:\n            # FIXME: is this really what we want to do?\n            # This seems like this logic is in the wrong place and may conflict with other state.",
+          "line_no": 10
+        },
+        {
+          "kind": "finally",
+          "label": "            finally:",
+          "line_no": 28
+        }
+      ],
+      "scope_signature": "try@9 > if@10 > finally@28",
+      "code": "                finally:\n                    if prev_ccache is not None:\n                        os.environ['KRB5CCNAME'] = prev_ccache",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 10,
+      "kind": "control",
+      "ast_kind": "if",
+      "depth": 2,
+      "start_line": 33,
+      "end_line": 37,
+      "scope_chain": [
+        {
+          "kind": "try",
+          "label": "    try:",
+          "line_no": 9
+        },
+        {
+          "kind": "if",
+          "label": "        if conn is None:",
+          "line_no": 33
+        }
+      ],
+      "scope_signature": "try@9 > if@33",
+      "code": "            if conn is None:\n                conn = IPASimpleLDAPObject(url)\n                if url.startswith('ldapi://'):\n                    conn.set_option(_ldap.OPT_HOST_NAME, api.env.host)\n                conn.sasl_interactive_bind_s(None, SASL_AUTH)",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "33:37:if:20",
+          "start_line": 33,
+          "end_line": 37,
+          "kind": "if",
+          "text": "            if conn is None:\n                conn = IPASimpleLDAPObject(url)\n                if url.startswith('ldapi://'):\n                    conn.set_option(_ldap.OPT_HOST_NAME, api.env.host)\n                conn.sasl_interactive_bind_s(None, SASL_AUTH)",
+          "depth": 2,
+          "is_exec": true,
+          "ast_node_id": 139913372380720,
+          "raw_node_ids": [
+            "30064771130",
+            "30064771130"
+          ],
+          "raw_kinds": [
+            "<operator>.is",
+            "<operator>.is"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.is, 33<BR/>conn is None>",
+            "<&lt;operator&gt;.is, 33<BR/>conn is None>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "33:37:if:20"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 11,
+      "kind": "control",
+      "ast_kind": "try",
+      "depth": 2,
+      "start_line": 39,
+      "end_line": 41,
+      "scope_chain": [
+        {
+          "kind": "try",
+          "label": "    try:",
+          "line_no": 9
+        },
+        {
+          "kind": "try",
+          "label": "        try:",
+          "line_no": 39
+        }
+      ],
+      "scope_signature": "try@9 > try@39",
+      "code": "            try:\n                schema_entry = conn.search_s('cn=schema', _ldap.SCOPE_BASE,\n                    attrlist=['attributetypes', 'objectclasses'])[0]",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "39:47:try:25",
+          "start_line": 39,
+          "end_line": 47,
+          "kind": "try",
+          "text": "            try:\n                schema_entry = conn.search_s('cn=schema', _ldap.SCOPE_BASE,\n                    attrlist=['attributetypes', 'objectclasses'])[0]\n            except _ldap.NO_SUCH_OBJECT:\n                # try different location for schema\n                # openldap has schema located in cn=subschema\n                self.debug('cn=schema not found, fallback to cn=subschema')\n                schema_entry = conn.search_s('cn=subschema', _ldap.SCOPE_BASE,\n                    attrlist=['attributetypes', 'objectclasses'])[0]",
+          "depth": 2,
+          "is_exec": true,
+          "ast_node_id": 139913372373424,
+          "raw_node_ids": [],
+          "raw_kinds": [],
+          "raw_labels": []
+        }
+      ],
+      "node_ids": [
+        "39:47:try:25"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 12,
+      "kind": "control",
+      "ast_kind": "except",
+      "depth": 2,
+      "start_line": 42,
+      "end_line": 47,
+      "scope_chain": [
+        {
+          "kind": "try",
+          "label": "    try:",
+          "line_no": 9
+        },
+        {
+          "kind": "except",
+          "label": "        except _ldap.NO_SUCH_OBJECT:\n            # try different location for schema\n            # openldap has schema located in cn=subschema",
+          "line_no": 42
+        }
+      ],
+      "scope_signature": "try@9 > except@42",
+      "code": "            except _ldap.NO_SUCH_OBJECT:\n                # try different location for schema\n                # openldap has schema located in cn=subschema\n                self.debug('cn=schema not found, fallback to cn=subschema')\n                schema_entry = conn.search_s('cn=subschema', _ldap.SCOPE_BASE,\n                    attrlist=['attributetypes', 'objectclasses'])[0]",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 13,
+      "kind": "control",
+      "ast_kind": "if",
+      "depth": 2,
+      "start_line": 48,
+      "end_line": 49,
+      "scope_chain": [
+        {
+          "kind": "try",
+          "label": "    try:",
+          "line_no": 9
+        },
+        {
+          "kind": "if",
+          "label": "        if not has_conn:",
+          "line_no": 48
+        }
+      ],
+      "scope_signature": "try@9 > if@48",
+      "code": "            if not has_conn:\n                conn.unbind_s()",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "48:49:if:29",
+          "start_line": 48,
+          "end_line": 49,
+          "kind": "if",
+          "text": "            if not has_conn:\n                conn.unbind_s()",
+          "depth": 2,
+          "is_exec": true,
+          "ast_node_id": 139913372371600,
+          "raw_node_ids": [
+            "30064771156",
+            "30064771156"
+          ],
+          "raw_kinds": [
+            "<operator>.logicalNot",
+            "<operator>.logicalNot"
+          ],
+          "raw_labels": [
+            "<&lt;operator&gt;.logicalNot, 48<BR/>not has_conn>",
+            "<&lt;operator&gt;.logicalNot, 48<BR/>not has_conn>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "48:49:if:29"
+      ],
+      "stmt_count": 1
+    },
+    {
+      "block_id": 14,
+      "kind": "control",
+      "ast_kind": "except",
+      "depth": 1,
+      "start_line": 50,
+      "end_line": 52,
+      "scope_chain": [
+        {
+          "kind": "except",
+          "label": "    except _ldap.SERVER_DOWN:",
+          "line_no": 50
+        }
+      ],
+      "scope_signature": "except@50",
+      "code": "        except _ldap.SERVER_DOWN:\n            raise NetworkError(uri=url,\n                               error=u'LDAP Server Down, unable to retrieve LDAP schema')",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 15,
+      "kind": "control",
+      "ast_kind": "except",
+      "depth": 1,
+      "start_line": 53,
+      "end_line": 57,
+      "scope_chain": [
+        {
+          "kind": "except",
+          "label": "    except _ldap.LDAPError, e:",
+          "line_no": 53
+        }
+      ],
+      "scope_signature": "except@53",
+      "code": "        except _ldap.LDAPError, e:\n            desc = e.args[0]['desc'].strip()\n            info = e.args[0].get('info', '').strip()\n            raise DatabaseError(desc = u'uri=%s' % url,\n                                info = u'Unable to retrieve LDAP schema: %s: %s' % (desc, info))",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 16,
+      "kind": "control",
+      "ast_kind": "except",
+      "depth": 1,
+      "start_line": 58,
+      "end_line": 62,
+      "scope_chain": [
+        {
+          "kind": "except",
+          "label": "    except IndexError:\n        # no 'cn=schema' entry in LDAP? some servers use 'cn=subschema'\n        # TODO: DS uses 'cn=schema', support for other server?\n        #       raise a more appropriate exception",
+          "line_no": 58
+        }
+      ],
+      "scope_signature": "except@58",
+      "code": "        except IndexError:\n            # no 'cn=schema' entry in LDAP? some servers use 'cn=subschema'\n            # TODO: DS uses 'cn=schema', support for other server?\n            #       raise a more appropriate exception\n            raise",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 17,
+      "kind": "control",
+      "ast_kind": "finally",
+      "depth": 1,
+      "start_line": 63,
+      "end_line": 65,
+      "scope_chain": [
+        {
+          "kind": "finally",
+          "label": "    finally:",
+          "line_no": 63
+        }
+      ],
+      "scope_signature": "finally@63",
+      "code": "        finally:\n            if tmpdir:\n                shutil.rmtree(tmpdir)",
+      "pdg_connected": false,
+      "synthetic": true,
+      "stmt_infos": [],
+      "node_ids": [],
+      "stmt_count": 0
+    },
+    {
+      "block_id": 18,
+      "kind": "atomic",
+      "ast_kind": "return",
+      "depth": 1,
+      "start_line": 67,
+      "end_line": 67,
+      "scope_chain": [],
+      "scope_signature": "∅",
+      "code": "        return _ldap.schema.SubSchema(schema_entry[1])",
+      "pdg_connected": true,
+      "synthetic": false,
+      "stmt_infos": [
+        {
+          "node_id": "67:67:return:38",
+          "start_line": 67,
+          "end_line": 67,
+          "kind": "return",
+          "text": "        return _ldap.schema.SubSchema(schema_entry[1])",
+          "depth": 1,
+          "is_exec": true,
+          "ast_node_id": 139913372349440,
+          "raw_node_ids": [
+            "141733920768",
+            "30064771187",
+            "30064771189",
+            "141733920768",
+            "30064771187",
+            "30064771189"
+          ],
+          "raw_kinds": [
+            "RETURN",
+            "<operator>.assignment",
+            "SubSchema",
+            "RETURN",
+            "<operator>.assignment",
+            "SubSchema"
+          ],
+          "raw_labels": [
+            "<RETURN, 67<BR/>return _ldap.schema.SubSchema(schema_entry[1])>",
+            "<&lt;operator&gt;.assignment, 67<BR/>tmp4 = _ldap.schema>",
+            "<SubSchema, 67<BR/>_ldap.schema.SubSchema(schema_entry[1])>",
+            "<RETURN, 67<BR/>return _ldap.schema.SubSchema(schema_entry[1])>",
+            "<&lt;operator&gt;.assignment, 67<BR/>tmp4 = _ldap.schema>",
+            "<SubSchema, 67<BR/>_ldap.schema.SubSchema(schema_entry[1])>"
+          ]
+        }
+      ],
+      "node_ids": [
+        "67:67:return:38"
+      ],
+      "stmt_count": 1
+    }
+  ],
+  "source_lines": [
+    {
+      "line_no": 1,
+      "text": ""
+    },
+    {
+      "line_no": 2,
+      "text": ""
+    },
+    {
+      "line_no": 3,
+      "text": "\tdef _retrieve_schema_from_server(self, url, conn=None):"
+    },
+    {
+      "line_no": 4,
+      "text": "        tmpdir = None"
+    },
+    {
+      "line_no": 5,
+      "text": "        has_conn = conn is not None"
+    },
+    {
+      "line_no": 6,
+      "text": ""
+    },
+    {
+      "line_no": 7,
+      "text": "        self.debug('retrieving schema for SchemaCache url=%s conn=%s', url, conn)"
+    },
+    {
+      "line_no": 8,
+      "text": ""
+    },
+    {
+      "line_no": 9,
+      "text": "        try:"
+    },
+    {
+      "line_no": 10,
+      "text": "            if api.env.context == 'server' and conn is None:"
+    },
+    {
+      "line_no": 11,
+      "text": "                # FIXME: is this really what we want to do?"
+    },
+    {
+      "line_no": 12,
+      "text": "                # This seems like this logic is in the wrong place and may conflict with other state."
+    },
+    {
+      "line_no": 13,
+      "text": "                try:"
+    },
+    {
+      "line_no": 14,
+      "text": "                    # Create a new credentials cache for this Apache process"
+    },
+    {
+      "line_no": 15,
+      "text": "                    tmpdir = tempfile.mkdtemp(prefix = \"tmp-\")"
+    },
+    {
+      "line_no": 16,
+      "text": "                    ccache_file = 'FILE:%s/ccache' % tmpdir"
+    },
+    {
+      "line_no": 17,
+      "text": "                    krbcontext = krbV.default_context()"
+    },
+    {
+      "line_no": 18,
+      "text": "                    principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))"
+    },
+    {
+      "line_no": 19,
+      "text": "                    keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)"
+    },
+    {
+      "line_no": 20,
+      "text": "                    principal = krbV.Principal(name=principal, context=krbcontext)"
+    },
+    {
+      "line_no": 21,
+      "text": "                    prev_ccache = os.environ.get('KRB5CCNAME')"
+    },
+    {
+      "line_no": 22,
+      "text": "                    os.environ['KRB5CCNAME'] = ccache_file"
+    },
+    {
+      "line_no": 23,
+      "text": "                    ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)"
+    },
+    {
+      "line_no": 24,
+      "text": "                    ccache.init(principal)"
+    },
+    {
+      "line_no": 25,
+      "text": "                    ccache.init_creds_keytab(keytab=keytab, principal=principal)"
+    },
+    {
+      "line_no": 26,
+      "text": "                except krbV.Krb5Error, e:"
+    },
+    {
+      "line_no": 27,
+      "text": "                    raise StandardError('Unable to retrieve LDAP schema. Error initializing principal %s in %s: %s' % (principal.name, '/etc/httpd/conf/ipa.keytab', str(e)))"
+    },
+    {
+      "line_no": 28,
+      "text": "                finally:"
+    },
+    {
+      "line_no": 29,
+      "text": "                    if prev_ccache is not None:"
+    },
+    {
+      "line_no": 30,
+      "text": "                        os.environ['KRB5CCNAME'] = prev_ccache"
+    },
+    {
+      "line_no": 31,
+      "text": ""
+    },
+    {
+      "line_no": 32,
+      "text": ""
+    },
+    {
+      "line_no": 33,
+      "text": "            if conn is None:"
+    },
+    {
+      "line_no": 34,
+      "text": "                conn = IPASimpleLDAPObject(url)"
+    },
+    {
+      "line_no": 35,
+      "text": "                if url.startswith('ldapi://'):"
+    },
+    {
+      "line_no": 36,
+      "text": "                    conn.set_option(_ldap.OPT_HOST_NAME, api.env.host)"
+    },
+    {
+      "line_no": 37,
+      "text": "                conn.sasl_interactive_bind_s(None, SASL_AUTH)"
+    },
+    {
+      "line_no": 38,
+      "text": ""
+    },
+    {
+      "line_no": 39,
+      "text": "            try:"
+    },
+    {
+      "line_no": 40,
+      "text": "                schema_entry = conn.search_s('cn=schema', _ldap.SCOPE_BASE,"
+    },
+    {
+      "line_no": 41,
+      "text": "                    attrlist=['attributetypes', 'objectclasses'])[0]"
+    },
+    {
+      "line_no": 42,
+      "text": "            except _ldap.NO_SUCH_OBJECT:"
+    },
+    {
+      "line_no": 43,
+      "text": "                # try different location for schema"
+    },
+    {
+      "line_no": 44,
+      "text": "                # openldap has schema located in cn=subschema"
+    },
+    {
+      "line_no": 45,
+      "text": "                self.debug('cn=schema not found, fallback to cn=subschema')"
+    },
+    {
+      "line_no": 46,
+      "text": "                schema_entry = conn.search_s('cn=subschema', _ldap.SCOPE_BASE,"
+    },
+    {
+      "line_no": 47,
+      "text": "                    attrlist=['attributetypes', 'objectclasses'])[0]"
+    },
+    {
+      "line_no": 48,
+      "text": "            if not has_conn:"
+    },
+    {
+      "line_no": 49,
+      "text": "                conn.unbind_s()"
+    },
+    {
+      "line_no": 50,
+      "text": "        except _ldap.SERVER_DOWN:"
+    },
+    {
+      "line_no": 51,
+      "text": "            raise NetworkError(uri=url,"
+    },
+    {
+      "line_no": 52,
+      "text": "                               error=u'LDAP Server Down, unable to retrieve LDAP schema')"
+    },
+    {
+      "line_no": 53,
+      "text": "        except _ldap.LDAPError, e:"
+    },
+    {
+      "line_no": 54,
+      "text": "            desc = e.args[0]['desc'].strip()"
+    },
+    {
+      "line_no": 55,
+      "text": "            info = e.args[0].get('info', '').strip()"
+    },
+    {
+      "line_no": 56,
+      "text": "            raise DatabaseError(desc = u'uri=%s' % url,"
+    },
+    {
+      "line_no": 57,
+      "text": "                                info = u'Unable to retrieve LDAP schema: %s: %s' % (desc, info))"
+    },
+    {
+      "line_no": 58,
+      "text": "        except IndexError:"
+    },
+    {
+      "line_no": 59,
+      "text": "            # no 'cn=schema' entry in LDAP? some servers use 'cn=subschema'"
+    },
+    {
+      "line_no": 60,
+      "text": "            # TODO: DS uses 'cn=schema', support for other server?"
+    },
+    {
+      "line_no": 61,
+      "text": "            #       raise a more appropriate exception"
+    },
+    {
+      "line_no": 62,
+      "text": "            raise"
+    },
+    {
+      "line_no": 63,
+      "text": "        finally:"
+    },
+    {
+      "line_no": 64,
+      "text": "            if tmpdir:"
+    },
+    {
+      "line_no": 65,
+      "text": "                shutil.rmtree(tmpdir)"
+    },
+    {
+      "line_no": 66,
+      "text": ""
+    },
+    {
+      "line_no": 67,
+      "text": "        return _ldap.schema.SubSchema(schema_entry[1])"
+    }
+  ],
+  "source_text": "\n\n\tdef _retrieve_schema_from_server(self, url, conn=None):\n        tmpdir = None\n        has_conn = conn is not None\n\n        self.debug('retrieving schema for SchemaCache url=%s conn=%s', url, conn)\n\n        try:\n            if api.env.context == 'server' and conn is None:\n                # FIXME: is this really what we want to do?\n                # This seems like this logic is in the wrong place and may conflict with other state.\n                try:\n                    # Create a new credentials cache for this Apache process\n                    tmpdir = tempfile.mkdtemp(prefix = \"tmp-\")\n                    ccache_file = 'FILE:%s/ccache' % tmpdir\n                    krbcontext = krbV.default_context()\n                    principal = str('HTTP/%s@%s' % (api.env.host, api.env.realm))\n                    keytab = krbV.Keytab(name='/etc/httpd/conf/ipa.keytab', context=krbcontext)\n                    principal = krbV.Principal(name=principal, context=krbcontext)\n                    prev_ccache = os.environ.get('KRB5CCNAME')\n                    os.environ['KRB5CCNAME'] = ccache_file\n                    ccache = krbV.CCache(name=ccache_file, context=krbcontext, primary_principal=principal)\n                    ccache.init(principal)\n                    ccache.init_creds_keytab(keytab=keytab, principal=principal)\n                except krbV.Krb5Error, e:\n                    raise StandardError('Unable to retrieve LDAP schema. Error initializing principal %s in %s: %s' % (principal.name, '/etc/httpd/conf/ipa.keytab', str(e)))\n                finally:\n                    if prev_ccache is not None:\n                        os.environ['KRB5CCNAME'] = prev_ccache\n\n\n            if conn is None:\n                conn = IPASimpleLDAPObject(url)\n                if url.startswith('ldapi://'):\n                    conn.set_option(_ldap.OPT_HOST_NAME, api.env.host)\n                conn.sasl_interactive_bind_s(None, SASL_AUTH)\n\n            try:\n                schema_entry = conn.search_s('cn=schema', _ldap.SCOPE_BASE,\n                    attrlist=['attributetypes', 'objectclasses'])[0]\n            except _ldap.NO_SUCH_OBJECT:\n                # try different location for schema\n                # openldap has schema located in cn=subschema\n                self.debug('cn=schema not found, fallback to cn=subschema')\n                schema_entry = conn.search_s('cn=subschema', _ldap.SCOPE_BASE,\n                    attrlist=['attributetypes', 'objectclasses'])[0]\n            if not has_conn:\n                conn.unbind_s()\n        except _ldap.SERVER_DOWN:\n            raise NetworkError(uri=url,\n                               error=u'LDAP Server Down, unable to retrieve LDAP schema')\n        except _ldap.LDAPError, e:\n            desc = e.args[0]['desc'].strip()\n            info = e.args[0].get('info', '').strip()\n            raise DatabaseError(desc = u'uri=%s' % url,\n                                info = u'Unable to retrieve LDAP schema: %s: %s' % (desc, info))\n        except IndexError:\n            # no 'cn=schema' entry in LDAP? some servers use 'cn=subschema'\n            # TODO: DS uses 'cn=schema', support for other server?\n            #       raise a more appropriate exception\n            raise\n        finally:\n            if tmpdir:\n                shutil.rmtree(tmpdir)\n\n        return _ldap.schema.SubSchema(schema_entry[1])\n"
+}

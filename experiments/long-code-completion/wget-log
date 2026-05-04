@@ -1,0 +1,26 @@
+--2026-03-18 16:51:46--  https://github.com/joernio/joern/releases/latest/download/joern-cli.zip
+Resolving github.com (github.com)... 20.205.243.166
+Connecting to github.com (github.com)|20.205.243.166|:443... connected.
+HTTP request sent, awaiting response... 302 Found
+Location: https://github.com/joernio/joern/releases/download/v4.0.506/joern-cli.zip [following]
+--2026-03-18 16:51:46--  https://github.com/joernio/joern/releases/download/v4.0.506/joern-cli.zip
+Reusing existing connection to github.com:443.
+HTTP request sent, awaiting response... 302 Found
+Location: https://release-assets.githubusercontent.com/github-production-release-asset/175681313/40f617e1-e793-476b-9690-c18cb3d6a0b1?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-03-18T09%3A43%3A56Z&rscd=attachment%3B+filename%3Djoern-cli.zip&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-03-18T08%3A42%3A59Z&ske=2026-03-18T09%3A43%3A56Z&sks=b&skv=2018-11-09&sig=%2FBQvDdn4wrXDIthIAoDEEYuxuvFf5ydSKLXdixBLqnU%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc3MzgyNzUwNiwibmJmIjoxNzczODIzOTA2LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.vYkv1vPYm9knjVC_hyOAfyGrAdvb0-U87xijoBUqOEA&response-content-disposition=attachment%3B%20filename%3Djoern-cli.zip&response-content-type=application%2Foctet-stream [following]
+--2026-03-18 16:51:46--  https://release-assets.githubusercontent.com/github-production-release-asset/175681313/40f617e1-e793-476b-9690-c18cb3d6a0b1?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-03-18T09%3A43%3A56Z&rscd=attachment%3B+filename%3Djoern-cli.zip&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-03-18T08%3A42%3A59Z&ske=2026-03-18T09%3A43%3A56Z&sks=b&skv=2018-11-09&sig=%2FBQvDdn4wrXDIthIAoDEEYuxuvFf5ydSKLXdixBLqnU%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc3MzgyNzUwNiwibmJmIjoxNzczODIzOTA2LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.vYkv1vPYm9knjVC_hyOAfyGrAdvb0-U87xijoBUqOEA&response-content-disposition=attachment%3B%20filename%3Djoern-cli.zip&response-content-type=application%2Foctet-stream
+Resolving release-assets.githubusercontent.com (release-assets.githubusercontent.com)... 185.199.108.133, 185.199.109.133, 185.199.110.133, ...
+Connecting to release-assets.githubusercontent.com (release-assets.githubusercontent.com)|185.199.108.133|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 1704069562 (1.6G) [application/octet-stream]
+Saving to: ‘joern-cli.zip.1’
+
+joern-cli.zip.1                           1%[                                                                             ]  16.97M  --.-KB/s    eta 38d 18hjoern-cli.zip.1                           1%[                                                                             ]  16.97M  --.-KB/s    in 9h 49m  
+
+2026-03-19 02:41:09 (503 B/s) - Read error at byte 17793024/1704069562 (Connection timed out). Retrying.
+
+--2026-03-19 02:41:10--  (try: 2)  https://release-assets.githubusercontent.com/github-production-release-asset/175681313/40f617e1-e793-476b-9690-c18cb3d6a0b1?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-03-18T09%3A43%3A56Z&rscd=attachment%3B+filename%3Djoern-cli.zip&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-03-18T08%3A42%3A59Z&ske=2026-03-18T09%3A43%3A56Z&sks=b&skv=2018-11-09&sig=%2FBQvDdn4wrXDIthIAoDEEYuxuvFf5ydSKLXdixBLqnU%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc3MzgyNzUwNiwibmJmIjoxNzczODIzOTA2LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.vYkv1vPYm9knjVC_hyOAfyGrAdvb0-U87xijoBUqOEA&response-content-disposition=attachment%3B%20filename%3Djoern-cli.zip&response-content-type=application%2Foctet-stream
+Connecting to release-assets.githubusercontent.com (release-assets.githubusercontent.com)|185.199.108.133|:443... failed: Connection timed out.
+Connecting to release-assets.githubusercontent.com (release-assets.githubusercontent.com)|185.199.109.133|:443... connected.
+HTTP request sent, awaiting response... 618 jwt:expired
+2026-03-19 02:43:25 ERROR 618: jwt:expired.
+

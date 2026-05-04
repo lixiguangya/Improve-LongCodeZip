@@ -1,0 +1,9 @@
+digraph "&lt;module&gt;" {  
+node [shape="rect"];  
+"107374182400" [label="METHOD, 4<BR/>&lt;module&gt;" ]
+"124554051584" [label="METHOD_RETURN, 4<BR/>ANY" ]
+"30064771072" [label="&lt;operator&gt;.assignment, 7<BR/>x = 0" ]
+  "30064771072" -> "124554051584"  [ label = "DDG: x"] 
+  "30064771072" -> "124554051584"  [ label = "DDG: x = 0"] 
+  "107374182400" -> "30064771072"  [ label = "DDG: "] 
+}

@@ -1,0 +1,8 @@
+digraph "&lt;operator&gt;.logicalNot" {  
+node [shape="rect"];  
+"107374182404" [label = <> ]
+"124554051588" [label = <> ]
+"111669149703" [label = <> ]
+  "111669149703" -> "124554051588"  [ label = "DDG: p1"] 
+  "107374182404" -> "111669149703"  [ label = "DDG: "] 
+}

@@ -1,0 +1,23 @@
+{
+  "function_name": "net_install",
+  "source_file": "/home/zhangmanqing/wyh/LongCodeZip/experiments/long-code-completion/code.py",
+  "func_start_line": 1,
+  "func_end_line": 138,
+  "dot_files_used": [
+    "/home/zhangmanqing/wyh/LongCodeZip/experiments/long-code-completion/.semantic_block_viz/pdg_out/1-pdg.dot"
+  ],
+  "raw_graph": {
+    "node_count": 290,
+    "edge_count": 789
+  },
+  "stmt_graph": {
+    "node_count": 75,
+    "edge_count": 297
+  },
+  "block_count": 41,
+  "graph_files": {
+    "png": "/home/zhangmanqing/wyh/LongCodeZip/experiments/long-code-completion/.semantic_block_viz/result/semantic_block_dependency_graph.png",
+    "pdf": "/home/zhangmanqing/wyh/LongCodeZip/experiments/long-code-completion/.semantic_block_viz/result/semantic_block_dependency_graph.pdf",
+    "svg": "/home/zhangmanqing/wyh/LongCodeZip/experiments/long-code-completion/.semantic_block_viz/result/semantic_block_dependency_graph.svg"
+  }
+}

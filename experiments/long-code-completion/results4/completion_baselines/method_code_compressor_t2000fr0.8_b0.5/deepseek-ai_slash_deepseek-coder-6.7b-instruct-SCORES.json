@@ -1,0 +1,33 @@
+{
+    "model_name": "deepseek-ai/deepseek-coder-6.7b-instruct",
+    "method": "code_compressor",
+    "num_examples_scored": 468,
+    "num_examples_total": 500,
+    "average_es": 59.19153717564253,
+    "average_em": 34.18803418803419,
+    "total_original_tokens_all": 6122279,
+    "total_compressed_tokens_all": 1173270,
+    "compression_ratio_total_original_over_compressed": 5.218133081046989,
+    "parameters": {
+        "dataset_path": "microsoft/LCC_python",
+        "dataset_split": "test",
+        "filter_current_lines_max": 50,
+        "filter_background_tokens_min": 5000,
+        "embed_model_name": null,
+        "compression_model_name": "deepseek-ai/deepseek-coder-6.7b-instruct",
+        "max_new_tokens": 128,
+        "batch_size": 16,
+        "rag_window_size": null,
+        "rag_overlap": null,
+        "rag_top_k": null,
+        "function_rag_language": null,
+        "function_rag_top_k": null,
+        "lingua_target_token": null,
+        "longlingua_chunk_size": null,
+        "longlingua_overlap": null,
+        "code_compressor_target_token": 2000,
+        "code_compressor_rank_only": false,
+        "code_compressor_fine_ratio": 0.8,
+        "importance_beta": 0.5
+    }
+}

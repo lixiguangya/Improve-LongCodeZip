@@ -1,4 +1,6 @@
 import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"  # Set this to the GPUs you want to use
 import json
 from tqdm import tqdm
 import torch
@@ -8,78 +10,90 @@ import fire
 from utils import load_data, compute_EM, compute_ES
 from vllm import LLM, SamplingParams
 from loguru import logger
-from code_compressor import CodeCompressor
+from code_compressor_l3 import CodeCompressor
 import gc
 from typing import List
 import re
 
 
 # Helper function for splitting code by functions (standalone version)
-def split_code_by_functions_standalone(code: str, language: str = "python") -> List[str]:
+def split_code_by_functions_standalone(
+    code: str, language: str = "python"
+) -> List[str]:
     """
     Split code into chunks based on function and class definitions for various languages.
     Standalone version that doesn't require CodeCompressor instance.
-    
+
     Args:
         code: The code to split
         language: Programming language of the code (python, cpp, java, typescript, rust, go)
-        
+
     Returns:
         List of code chunks, each containing a function, class, or class method
     """
     # Define regex patterns for different languages
     patterns = {
         # Python: Simplified to match 'def' or 'class' followed by content until the next def/class or end
-        "python": r'(^|\n)(\s*)(def|class)\s+[^\n]+(\n(?!\s*(?:def|class)\s)[^\n]*)*',
+        "python": r"(^|\n)(\s*)(def|class)\s+[^\n]+(\n(?!\s*(?:def|class)\s)[^\n]*)*",
         # C++: Improved to better handle multi-line declarations
-        "cpp": r'(^|\n)(\s*)(?:class\s+[a-zA-Z_][a-zA-Z0-9_]*(?:\s*:\s*[^{]*)?|(?:[a-zA-Z_][a-zA-Z0-9_<>:,\s]*\s+)?[a-zA-Z_][a-zA-Z0-9_]*\s*\([^{;]*\)(?:\s*[^{;]*)?)\s*(?:{[^}]*}|[^;]*;)?',
+        "cpp": r"(^|\n)(\s*)(?:class\s+[a-zA-Z_][a-zA-Z0-9_]*(?:\s*:\s*[^{]*)?|(?:[a-zA-Z_][a-zA-Z0-9_<>:,\s]*\s+)?[a-zA-Z_][a-zA-Z0-9_]*\s*\([^{;]*\)(?:\s*[^{;]*)?)\s*(?:{[^}]*}|[^;]*;)?",
         # Java: Improved for multi-line method declarations
-        "java": r'(^|\n)(\s*)(?:(?:public|private|protected|static|final|abstract|synchronized)\s+)*(?:class\s+[a-zA-Z_][a-zA-Z0-9_]*(?:\s+extends\s+[a-zA-Z_][a-zA-Z0-9_]*)?(?:\s+implements\s+[^{]*)?|(?:<.*>)?(?:[a-zA-Z_][a-zA-Z0-9_<>:,\s]*)\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\([^{;]*\)(?:\s*throws\s+[^{;]*)?)\s*(?:{[^}]*}|[^;]*;)?',
+        "java": r"(^|\n)(\s*)(?:(?:public|private|protected|static|final|abstract|synchronized)\s+)*(?:class\s+[a-zA-Z_][a-zA-Z0-9_]*(?:\s+extends\s+[a-zA-Z_][a-zA-Z0-9_]*)?(?:\s+implements\s+[^{]*)?|(?:<.*>)?(?:[a-zA-Z_][a-zA-Z0-9_<>:,\s]*)\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\([^{;]*\)(?:\s*throws\s+[^{;]*)?)\s*(?:{[^}]*}|[^;]*;)?",
         # TypeScript: Enhanced to handle multi-line methods and arrow functions
-        "typescript": r'(^|\n)(\s*)(?:(?:public|private|protected|static|abstract)\s+)*(?:class\s+[a-zA-Z_][a-zA-Z0-9_]*(?:\s+extends\s+[a-zA-Z_][a-zA-Z0-9_]*)?(?:\s+implements\s+[^{]*)?|(?:(?:public|private|protected|static|async)\s+)*(?:function\s+)?(?:[a-zA-Z_][a-zA-Z0-9_]*)\s*(?:<.*>)?\s*\([^{;]*\)\s*(?::\s*[^{;]*\s*)?(?:=>)?)\s*(?:{[^}]*}|[^;]*;)?',
+        "typescript": r"(^|\n)(\s*)(?:(?:public|private|protected|static|abstract)\s+)*(?:class\s+[a-zA-Z_][a-zA-Z0-9_]*(?:\s+extends\s+[a-zA-Z_][a-zA-Z0-9_]*)?(?:\s+implements\s+[^{]*)?|(?:(?:public|private|protected|static|async)\s+)*(?:function\s+)?(?:[a-zA-Z_][a-zA-Z0-9_]*)\s*(?:<.*>)?\s*\([^{;]*\)\s*(?::\s*[^{;]*\s*)?(?:=>)?)\s*(?:{[^}]*}|[^;]*;)?",
         # Rust: Improved for multi-line function declarations
-        "rust": r'(^|\n)(\s*)(?:pub\s+)?(?:struct\s+[a-zA-Z_][a-zA-Z0-9_]*|impl(?:\s+[a-zA-Z_][a-zA-Z0-9_]*)?(?:\s+for\s+[a-zA-Z_][a-zA-Z0-9_]*)?|(?:async\s+)?fn\s+[a-zA-Z_][a-zA-Z0-9_]*\s*(?:<.*>)?\s*\([^{;]*\)(?:\s*->\s*[^{;]*\s*)?)\s*(?:{[^}]*}|[^;]*;)?',
+        "rust": r"(^|\n)(\s*)(?:pub\s+)?(?:struct\s+[a-zA-Z_][a-zA-Z0-9_]*|impl(?:\s+[a-zA-Z_][a-zA-Z0-9_]*)?(?:\s+for\s+[a-zA-Z_][a-zA-Z0-9_]*)?|(?:async\s+)?fn\s+[a-zA-Z_][a-zA-Z0-9_]*\s*(?:<.*>)?\s*\([^{;]*\)(?:\s*->\s*[^{;]*\s*)?)\s*(?:{[^}]*}|[^;]*;)?",
         # Go: Improved for multi-line function declarations
-        "go": r'(^|\n)(\s*)(?:type\s+[a-zA-Z_][a-zA-Z0-9_]*\s+struct|func\s+(?:\([^)]*\)\s*)?[a-zA-Z_][a-zA-Z0-9_]*\s*\([^{;]*\)(?:\s*[^{;]*\s*)?)\s*(?:{[^}]*}|[^;]*;)?',
+        "go": r"(^|\n)(\s*)(?:type\s+[a-zA-Z_][a-zA-Z0-9_]*\s+struct|func\s+(?:\([^)]*\)\s*)?[a-zA-Z_][a-zA-Z0-9_]*\s*\([^{;]*\)(?:\s*[^{;]*\s*)?)\s*(?:{[^}]*}|[^;]*;)?",
     }
-    
+
     # Use default Python pattern if language not supported
     if language.lower() not in patterns:
         language = "python"
-    
+
     function_pattern = re.compile(patterns[language.lower()], re.MULTILINE)
     matches = list(function_pattern.finditer(code))
-    
+
     if not matches:
-        return [code] if code.strip() else []  # No matches, return whole code if not empty
-        
+        return (
+            [code] if code.strip() else []
+        )  # No matches, return whole code if not empty
+
     result_chunks = []
-    
+
     # Add code before first match if exists
     if matches[0].start() > 0:
-        pre_code = code[:matches[0].start()].strip()
+        pre_code = code[: matches[0].start()].strip()
         if pre_code:
             result_chunks.append(pre_code)
-    
+
     # Process each match
     for i, match in enumerate(matches):
         start = match.start()
-        
+
         # End is either start of next match or end of code
         if i < len(matches) - 1:
             end = matches[i + 1].start()
         else:
             end = len(code)
-        
+
         chunk = code[start:end].strip()
         if chunk:
             result_chunks.append(chunk)
-    
+
     return result_chunks
 
 
 # Helper function for function-level RAG retrieval
-def function_rag_retrieve(background_code: str, query_code: str, model, tokenizer, device, language: str, top_k: int) -> str:
+def function_rag_retrieve(
+    background_code: str,
+    query_code: str,
+    model,
+    tokenizer,
+    device,
+    language: str,
+    top_k: int,
+) -> str:
     """Uses function-level chunking and retrieves top_k similar functions."""
     if not background_code.strip():
         return ""  # Return empty if no background context
@@ -105,10 +119,14 @@ def function_rag_retrieve(background_code: str, query_code: str, model, tokenize
     chunk_embeddings_tensor = torch.stack(chunk_embeddings)
 
     # Compute cosine similarity
-    similarities = torch.cosine_similarity(query_embedding.unsqueeze(0), chunk_embeddings_tensor, dim=1)
+    similarities = torch.cosine_similarity(
+        query_embedding.unsqueeze(0), chunk_embeddings_tensor, dim=1
+    )
 
     # Get top_k indices
-    top_k_indices = torch.topk(similarities, k=min(top_k, len(valid_chunks)), dim=0).indices
+    top_k_indices = torch.topk(
+        similarities, k=min(top_k, len(valid_chunks)), dim=0
+    ).indices
 
     # Retrieve relevant chunks
     retrieved_chunks = [valid_chunks[i] for i in top_k_indices.tolist()]
@@ -171,17 +189,29 @@ def compute_embedding(text: str, model, tokenizer, device) -> torch.Tensor:
     """Computes sentence embedding for a text using the provided model."""
     if not text.strip():  # Handle empty strings
         return torch.zeros(model.config.hidden_size).to(device)
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512, padding=True).to(device)
+    inputs = tokenizer(
+        text, return_tensors="pt", truncation=True, max_length=512, padding=True
+    ).to(device)
     with torch.no_grad():
         outputs = model(**inputs)
     # Mean pool the last hidden state
     embedding = outputs.last_hidden_state.mean(dim=1).squeeze()
     return embedding
 
+
 # Helper function for RAG retrieval
 
 
-def rag_retrieve(background_code: str, query_code: str, model, tokenizer, device, window_size: int, overlap: int, top_k: int) -> str:
+def rag_retrieve(
+    background_code: str,
+    query_code: str,
+    model,
+    tokenizer,
+    device,
+    window_size: int,
+    overlap: int,
+    top_k: int,
+) -> str:
     """Chunks background, embeds chunks and query, retrieves top_k similar chunks."""
     if not background_code.strip():
         return ""  # Return empty if no background context
@@ -206,14 +236,20 @@ def rag_retrieve(background_code: str, query_code: str, model, tokenizer, device
     chunk_embeddings_tensor = torch.stack(chunk_embeddings)
 
     # Compute cosine similarity
-    similarities = torch.cosine_similarity(query_embedding.unsqueeze(0), chunk_embeddings_tensor, dim=1)
+    similarities = torch.cosine_similarity(
+        query_embedding.unsqueeze(0), chunk_embeddings_tensor, dim=1
+    )
 
     # Get top_k indices
-    top_k_indices = torch.topk(similarities, k=min(top_k, len(valid_chunks)), dim=0).indices
+    top_k_indices = torch.topk(
+        similarities, k=min(top_k, len(valid_chunks)), dim=0
+    ).indices
 
     # Retrieve and sort chunks by their original position
     relevant_chunks_with_indices = []
-    original_indices_map = {chunk_content: idx for idx, chunk_content in enumerate(chunks)}  # Map content back to original index
+    original_indices_map = {
+        chunk_content: idx for idx, chunk_content in enumerate(chunks)
+    }  # Map content back to original index
 
     retrieved_chunk_contents = [valid_chunks[i] for i in top_k_indices.tolist()]
 
@@ -221,7 +257,9 @@ def rag_retrieve(background_code: str, query_code: str, model, tokenizer, device
     chunk_start_lines = {}
     current_line = 0
     lines = background_code.splitlines()
-    chunk_map_from_sliding = chunk_sliding_window(background_code, window_size, overlap)  # Re-chunk to get consistent indexing if needed
+    chunk_map_from_sliding = chunk_sliding_window(
+        background_code, window_size, overlap
+    )  # Re-chunk to get consistent indexing if needed
     start_line_num = 0
     stride = window_size - overlap
     for i, chunk_content in enumerate(chunk_map_from_sliding):
@@ -232,18 +270,28 @@ def rag_retrieve(background_code: str, query_code: str, model, tokenizer, device
 
     sorted_relevant_chunks = sorted(
         retrieved_chunk_contents,
-        key=lambda content: chunk_start_lines.get(content, float('inf'))  # Sort by approximate start line
+        key=lambda content: chunk_start_lines.get(
+            content, float("inf")
+        ),  # Sort by approximate start line
     )
 
     # Combine relevant chunks
     # Original implementation joined with \n, let's keep it simple
-    combined_code = "\n\n".join(sorted_relevant_chunks)  # Separate chunks by double newline for clarity
+    combined_code = "\n\n".join(
+        sorted_relevant_chunks
+    )  # Separate chunks by double newline for clarity
 
     return combined_code
 
 
 # Helper function for LLMLingua compression
-def compress_llmlingua(context: str, query: str, compressor: PromptCompressor, target_token: int, instruction: str) -> str:
+def compress_llmlingua(
+    context: str,
+    query: str,
+    compressor: PromptCompressor,
+    target_token: int,
+    instruction: str,
+) -> str:
     """Compresses context using LLMLingua."""
     if not context.strip():
         return ""
@@ -253,11 +301,13 @@ def compress_llmlingua(context: str, query: str, compressor: PromptCompressor, t
         compressed = compressor.compress_prompt(
             context_clean,
             instruction=instruction,
-            question=query + "\n" + instruction,  # Combine query and instruction for question
-            target_token=target_token
+            question=query
+            + "\n"
+            + instruction,  # Combine query and instruction for question
+            target_token=target_token,
         )
         # Ensure result exists and is string
-        result = compressed.get('compressed_prompt', '')
+        result = compressed.get("compressed_prompt", "")
         return result if isinstance(result, str) else ""
     except Exception as e:
         logger.error(f"LLMLingua compression failed: {e}")
@@ -269,7 +319,15 @@ def compress_llmlingua(context: str, query: str, compressor: PromptCompressor, t
 
 
 # Helper function for LongLLMLingua compression
-def compress_longllmlingua(context: str, query: str, compressor: PromptCompressor, target_token: int, instruction: str, chunk_size: int, overlap: int) -> str:
+def compress_longllmlingua(
+    context: str,
+    query: str,
+    compressor: PromptCompressor,
+    target_token: int,
+    instruction: str,
+    chunk_size: int,
+    overlap: int,
+) -> str:
     """Compresses context using LongLLMLingua with sliding window chunks."""
     if not context.strip():
         return ""
@@ -284,12 +342,14 @@ def compress_longllmlingua(context: str, query: str, compressor: PromptCompresso
         compressed = compressor.compress_prompt(
             chunks,
             instruction=instruction,
-            question=query + "\n" + instruction,  # Combine query and instruction for question
+            question=query
+            + "\n"
+            + instruction,  # Combine query and instruction for question
             target_token=target_token,
-            rank_method="longllmlingua"  # Use the specified rank method
+            rank_method="longllmlingua",  # Use the specified rank method
         )
         # Ensure result exists and is string
-        result = compressed.get('compressed_prompt', '')
+        result = compressed.get("compressed_prompt", "")
         return result if isinstance(result, str) else ""
     except Exception as e:
         logger.error(f"LongLLMLingua compression failed: {e}")
@@ -299,10 +359,21 @@ def compress_longllmlingua(context: str, query: str, compressor: PromptCompresso
             return compressor.tokenizer.decode(tokens[:target_token])
         return context_clean
 
+
 # Helper function for CodeCompressor (Rank Only or Fine-grained)
 
 
-def compress_code_compressor(context: str, query: str, compressor: CodeCompressor, target_token: int, instruction: str, language: str, rank_only: bool, fine_ratio: float, importance_beta: float) -> str:
+def compress_code_compressor(
+    context: str,
+    query: str,
+    compressor: CodeCompressor,
+    target_token: int,
+    instruction: str,
+    language: str,
+    rank_only: bool,
+    fine_ratio: float,
+    importance_beta: float,
+) -> str:
     """Compresses context using CodeCompressor based on target tokens and rank_only flag."""
     if not context.strip():
         return ""
@@ -320,7 +391,9 @@ def compress_code_compressor(context: str, query: str, compressor: CodeCompresso
 
         # Calculate target ratio
         target_ratio = min(1.0, max(0.0, target_token / original_tokens))
-        logger.info(f"CodeCompressor: Original tokens={original_tokens}, Target tokens={target_token}, Calculated ratio={target_ratio:.4f}")
+        logger.info(
+            f"CodeCompressor: Original tokens={original_tokens}, Target tokens={target_token}, Calculated ratio={target_ratio:.4f}"
+        )
 
         # Pass rank_only and fine_ratio
         # Assuming compressor is already initialized with the correct model
@@ -331,21 +404,31 @@ def compress_code_compressor(context: str, query: str, compressor: CodeCompresso
             rate=target_ratio,
             language=language,
             rank_only=rank_only,  # Ensure rank_only mode is set
-            fine_ratio=fine_ratio if not rank_only else None,  # Pass fine_ratio only if not rank_only
-            importance_beta=importance_beta if not rank_only else None,  # Pass importance_beta only if not rank_only
+            fine_ratio=(
+                fine_ratio if not rank_only else None
+            ),  # Pass fine_ratio only if not rank_only
+            importance_beta=(
+                importance_beta if not rank_only else None
+            ),  # Pass importance_beta only if not rank_only
         )
 
         # Extract compressed content - check both possible keys
         compressed_context = compressed_result.get("compressed_code")
 
         if not isinstance(compressed_context, str):
-            logger.error(f"CodeCompressor returned non-string: {type(compressed_context)}")
+            logger.error(
+                f"CodeCompressor returned non-string: {type(compressed_context)}"
+            )
             compressed_context = ""  # Fallback
 
         # Log results
         compressed_tokens_count = len(compressor.tokenizer.encode(compressed_context))
-        final_ratio = (compressed_tokens_count / original_tokens) if original_tokens > 0 else 0
-        logger.info(f"CodeCompressor: Compressed tokens={compressed_tokens_count}, Actual ratio={final_ratio:.4f}")
+        final_ratio = (
+            (compressed_tokens_count / original_tokens) if original_tokens > 0 else 0
+        )
+        logger.info(
+            f"CodeCompressor: Compressed tokens={compressed_tokens_count}, Actual ratio={final_ratio:.4f}"
+        )
 
         return compressed_context
 
@@ -358,42 +441,37 @@ def compress_code_compressor(context: str, query: str, compressor: CodeCompresso
             return compressor.tokenizer.decode(tokens[:target_token])
         return context_clean
 
+
 # Function to save scores
 
 
 def save_json(data: dict, file_path: str):
     """Saves dictionary data to a JSON file."""
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, 'w') as f:
+    with open(file_path, "w") as f:
         json.dump(data, f, indent=4)
 
 
 def generate_completions(llm, batch_prompts, max_new_tokens=128):
     # Generate completions for batch
     sampling_params = SamplingParams(
-        temperature=0,
-        top_p=0.95,
-        max_tokens=max_new_tokens
+        temperature=0, top_p=0.95, max_tokens=max_new_tokens
     )
 
-    batch_outputs = llm.generate(
-        batch_prompts,
-        sampling_params,
-        use_tqdm=False
-    )
+    batch_outputs = llm.generate(batch_prompts, sampling_params, use_tqdm=False)
 
     return [x.outputs[0].text for x in batch_outputs]
 
 
 def evaluate_completion(
     model_name: str = "Qwen/Qwen2.5-Coder-7B-Instruct",
-    method: str = "full",
-    result_dir: str = "results/completion_baselines",
+    method: str = "code_compressor",
+    result_dir: str = "results1/completion_baselines",
     embed_model_name: str = "microsoft/unixcoder-base",
     compression_model_name: str = "Qwen/Qwen2.5-Coder-7B-Instruct",
     dataset_path: str = "microsoft/LCC_python",
     dataset_split: str = "test",
-    num_examples: int = 200,
+    num_examples: int = 500,
     max_new_tokens: int = 128,
     batch_size: int = 16,
     # RAG params
@@ -410,29 +488,40 @@ def evaluate_completion(
     longlingua_chunk_size: int = 80,
     longlingua_overlap: int = 40,
     # CodeCompressor params (New)
-    code_compressor_target_token: int = 500,
+    code_compressor_target_token: int = 2000,
     # vLLM params
     tensor_parallel_size: int = 1,
     trust_remote_code: bool = True,
-    gpu_memory_utilization: float = 0.9,
+    gpu_memory_utilization: float = 0.6,
     filter_current_lines_max: int = 50,
-    filter_background_tokens_min: int = 3000,
+    filter_background_tokens_min: int = 5000,
     # New CodeCompressor fine-grained param
-    code_compressor_fine_ratio: float = 1.0,  # Default 1.0 means rank_only=True
+    code_compressor_fine_ratio: float = 0.8,  # Default 1.0 means rank_only=True
     # New CodeCompressor importance beta param
-    importance_beta: float = 0.0, # Default beta is 0.0
+    importance_beta: float = 0.5,  # Default beta is 0.0
 ):
     """Evaluates code completion baselines with a specified context preparation method."""
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    stats_tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    total_original_tokens_all = 0
+    total_compressed_tokens_all = 0
     logger.info(f"Using device: {device}")
 
     # --- 1. Load Data ---
     # Assuming python for now, might need modification if dataset has multiple languages
     # Note: Language info might be needed for CodeCompressor if not always python
-    dataset, _ = load_data(path=dataset_path, split=dataset_split, num_examples=num_examples,
-                           filter_current_lines_max=filter_current_lines_max, filter_background_tokens_min=filter_background_tokens_min)
-    logger.info(f"Loaded {len(dataset)} examples from {dataset_path} ({dataset_split} split)")
+    dataset, _ = load_data(
+        path=dataset_path,
+        split=dataset_split,
+        num_examples=num_examples,
+        filter_current_lines_max=filter_current_lines_max,
+        filter_background_tokens_min=filter_background_tokens_min,
+    )
+    logger.info(
+        f"Loaded {len(dataset)} examples from {dataset_path} ({dataset_split} split)"
+    )
 
     # --- 2. Initialize Models ---
     embed_model = None
@@ -447,7 +536,9 @@ def evaluate_completion(
     lingua_compressor = None
     if method == "llmlingua" or method == "longllmlingua":
         logger.info(f"Initializing LLMLingua compressor: {compression_model_name}")
-        lingua_compressor = PromptCompressor(model_name=compression_model_name, device_map="auto")
+        lingua_compressor = PromptCompressor(
+            model_name=compression_model_name, device_map="auto"
+        )
         logger.info(f"LLMLingua compressor {compression_model_name} initialized.")
 
     code_compressor_instance = None  # Renamed to avoid conflict
@@ -461,10 +552,17 @@ def evaluate_completion(
     if method in ["full", "no_context"]:
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         # try to compress a dummy prompt to avoid cuda error when initializing the vllm (strange bug)
-        code_compressor_instance = PromptCompressor(model_name=compression_model_name, device_map="auto")
+        code_compressor_instance = PromptCompressor(
+            model_name=compression_model_name, device_map="auto"
+        )
         logger.info(f"CodeCompressor {compression_model_name} initialized.")
-        dummy_prompt = "def hello_world():\n    print('Hello, World!')"*100
-        compressed_prompt = code_compressor_instance.compress_prompt(dummy_prompt, instruction="Complete the following code function given the context.", question="Complete the following code function given the context.", target_token=500)
+        dummy_prompt = "def hello_world():\n    print('Hello, World!')" * 100
+        compressed_prompt = code_compressor_instance.compress_prompt(
+            dummy_prompt,
+            instruction="Complete the following code function given the context.",
+            question="Complete the following code function given the context.",
+            target_token=500,
+        )
         logger.info(f"Compressed prompt: {compressed_prompt}")
 
     # --- 3. Process the Specified Method ---
@@ -479,16 +577,22 @@ def evaluate_completion(
     elif method == "llmlingua":
         method_suffix += f"_t{lingua_target_token}"
     elif method == "longllmlingua":
-        method_suffix += f"_t{lingua_target_token}_cs{longlingua_chunk_size}_o{longlingua_overlap}"
+        method_suffix += (
+            f"_t{lingua_target_token}_cs{longlingua_chunk_size}_o{longlingua_overlap}"
+        )
     elif method == "code_compressor":
         # Determine if rank_only based on fine_ratio
-        rank_only_for_suffix = (code_compressor_fine_ratio == 1.0)
-        suffix_detail = "_rankonly" if rank_only_for_suffix else f"fr{code_compressor_fine_ratio}"
+        rank_only_for_suffix = code_compressor_fine_ratio == 1.0
+        suffix_detail = (
+            "_rankonly" if rank_only_for_suffix else f"fr{code_compressor_fine_ratio}"
+        )
         # Add importance_beta to suffix
         if importance_beta > 0:
             suffix_detail += f"_b{importance_beta}"
         # Use code_compressor_target_token for consistency
-        method_suffix += f"_t{code_compressor_target_token}{suffix_detail}"  # Updated suffix
+        method_suffix += (
+            f"_t{code_compressor_target_token}{suffix_detail}"  # Updated suffix
+        )
 
     method_result_dir = os.path.join(result_dir, method_suffix)
     os.makedirs(method_result_dir, exist_ok=True)
@@ -507,11 +611,13 @@ def evaluate_completion(
 
     # Prepare prompts based on method
     for i, example in enumerate(tqdm(dataset, desc=f"Preparing prompts for {method}")):
-        background_ctx = example['background_context']
-        current_func_ctx = example['current_function_context']  # This is the prefix
-        ground_truth = example['gt']  # This is the completion target
+        background_ctx = example["background_context"]
+        current_func_ctx = example["current_function_context"]  # This is the prefix
+        ground_truth = example["gt"]  # This is the completion target
         # Determine language - assuming python for now based on dataset path
-        language = "python"  # IMPORTANT: Make dynamic if dataset contains multiple languages
+        language = (
+            "python"  # IMPORTANT: Make dynamic if dataset contains multiple languages
+        )
 
         context_for_prompt = ""
         try:
@@ -520,50 +626,82 @@ def evaluate_completion(
 
                 # some models have max context length of 32768, so we truncate the context (from the head) if it exceeds that
                 tokenized_context = tokenizer.encode(context_for_prompt)
-                if len(tokenized_context) > 32768-256:
-                    logger.warning(f"Context length exceeds 32768, truncating from the head. Original length: {len(tokenized_context)}, Truncated length: 32768")
-                    context_for_prompt = tokenizer.decode(tokenized_context[-(32768-256):])
+                if len(tokenized_context) > 32768 - 256:
+                    logger.warning(
+                        f"Context length exceeds 32768, truncating from the head. Original length: {len(tokenized_context)}, Truncated length: 32768"
+                    )
+                    context_for_prompt = tokenizer.decode(
+                        tokenized_context[-(32768 - 256) :]
+                    )
             elif method == "rag":
                 if not embed_model or not embed_tokenizer:
-                    raise ValueError("RAG method selected but embedding model not initialized.")
+                    raise ValueError(
+                        "RAG method selected but embedding model not initialized."
+                    )
                 retrieved_ctx = rag_retrieve(
-                    background_ctx, current_func_ctx,
-                    embed_model, embed_tokenizer, device,
-                    rag_window_size, rag_overlap, rag_top_k
+                    background_ctx,
+                    current_func_ctx,
+                    embed_model,
+                    embed_tokenizer,
+                    device,
+                    rag_window_size,
+                    rag_overlap,
+                    rag_top_k,
                 )
                 context_for_prompt = retrieved_ctx + "\n\n" + current_func_ctx
             elif method == "function_rag":
                 if not embed_model or not embed_tokenizer:
-                    raise ValueError("Function RAG method selected but embedding model not initialized.")
+                    raise ValueError(
+                        "Function RAG method selected but embedding model not initialized."
+                    )
                 retrieved_ctx = function_rag_retrieve(
-                    background_ctx, current_func_ctx,
-                    embed_model, embed_tokenizer, device,
-                    function_rag_language, function_rag_top_k
+                    background_ctx,
+                    current_func_ctx,
+                    embed_model,
+                    embed_tokenizer,
+                    device,
+                    function_rag_language,
+                    function_rag_top_k,
                 )
                 context_for_prompt = retrieved_ctx + "\n\n" + current_func_ctx
             elif method == "llmlingua":
                 if not lingua_compressor:
-                    raise ValueError("LLMLingua method selected but compressor not initialized.")
+                    raise ValueError(
+                        "LLMLingua method selected but compressor not initialized."
+                    )
                 compressed_ctx = compress_llmlingua(
-                    background_ctx, current_func_ctx,
-                    lingua_compressor, lingua_target_token, lingua_instruction
+                    background_ctx,
+                    current_func_ctx,
+                    lingua_compressor,
+                    lingua_target_token,
+                    lingua_instruction,
                 )
                 context_for_prompt = compressed_ctx + "\n\n" + current_func_ctx
             elif method == "longllmlingua":
                 if not lingua_compressor:
-                    raise ValueError("LongLLMLingua method selected but compressor not initialized.")
+                    raise ValueError(
+                        "LongLLMLingua method selected but compressor not initialized."
+                    )
                 compressed_ctx = compress_longllmlingua(
-                    background_ctx, current_func_ctx,
-                    lingua_compressor, lingua_target_token, lingua_instruction,
-                    longlingua_chunk_size, longlingua_overlap
+                    background_ctx,
+                    current_func_ctx,
+                    lingua_compressor,
+                    lingua_target_token,
+                    lingua_instruction,
+                    longlingua_chunk_size,
+                    longlingua_overlap,
                 )
                 context_for_prompt = compressed_ctx + "\n\n" + current_func_ctx
             elif method == "code_compressor":
                 if not code_compressor_instance:
-                    raise ValueError("CodeCompressor method selected but compressor not initialized.")
+                    raise ValueError(
+                        "CodeCompressor method selected but compressor not initialized."
+                    )
                 # Determine rank_only based on fine_ratio
-                rank_only = (code_compressor_fine_ratio == 1.0)
-                logger.info(f"CodeCompressor mode: {'Rank Only' if rank_only else f'Fine-grained (ratio={code_compressor_fine_ratio})'}")
+                rank_only = code_compressor_fine_ratio == 1.0
+                logger.info(
+                    f"CodeCompressor mode: {'Rank Only' if rank_only else f'Fine-grained (ratio={code_compressor_fine_ratio})'}"
+                )
                 # Use current_func_ctx as the query for CodeCompressor to focus retrieval
                 compressed_ctx = compress_code_compressor(
                     context=background_ctx,
@@ -574,7 +712,7 @@ def evaluate_completion(
                     language=language,
                     rank_only=rank_only,  # Pass determined rank_only flag
                     fine_ratio=code_compressor_fine_ratio,  # Pass fine_ratio
-                    importance_beta=importance_beta, # Pass importance_beta
+                    importance_beta=importance_beta,  # Pass importance_beta
                 )
                 # Combine the compressed background context with the original current function context
                 context_for_prompt = compressed_ctx + "\n\n" + current_func_ctx
@@ -583,17 +721,47 @@ def evaluate_completion(
             else:
                 raise ValueError(f"Unknown method: {method}")
 
+            # 统计原始上下文 token 和压缩后上下文 token
+            if method == "no_context":
+                original_prompt_text = current_func_ctx
+            else:
+                original_prompt_text = background_ctx + "\n\n" + current_func_ctx
+
+            compressed_prompt_text = context_for_prompt.strip()
+
+            original_tokens_example = len(stats_tokenizer.encode(original_prompt_text))
+            compressed_tokens_example = len(
+                stats_tokenizer.encode(compressed_prompt_text)
+            )
+
+            total_original_tokens_all += original_tokens_example
+            total_compressed_tokens_all += compressed_tokens_example
+
+            case_ratio = (
+                original_tokens_example / compressed_tokens_example
+                if compressed_tokens_example > 0
+                else 0
+            )
+
             prompt = context_for_prompt.strip()
             all_prompts.append(prompt)
-            original_data.append({
-                "id": example.get("id", i),
-                "gt": ground_truth,
-                "original_background_context": background_ctx,
-                "original_current_function_context": current_func_ctx,
-                "language": language  # Store language if needed later
-            })
+            original_data.append(
+                {
+                    "id": example.get("id", i),
+                    "gt": ground_truth,
+                    "original_background_context": background_ctx,
+                    "original_current_function_context": current_func_ctx,
+                    "language": language,  # Store language if needed later
+                    "original_tokens": original_tokens_example,
+                    "compressed_tokens": compressed_tokens_example,
+                    "ratio": case_ratio,  # 压缩后 / 压缩前
+                }
+            )
         except Exception as e:
-            logger.warning(f"Error processing example {i} (ID: {example.get('id', 'N/A')}) for method {method}: {e}", exc_info=True)
+            logger.warning(
+                f"Error processing example {i} (ID: {example.get('id', 'N/A')}) for method {method}: {e}",
+                exc_info=True,
+            )
             continue  # Skip this example
 
     # --- 4. Clean up Compression/Embedding Models ---
@@ -613,7 +781,9 @@ def evaluate_completion(
     # --- 5. Initialize Generation LLM ---
     # Check if there are any prompts to process before initializing LLM
     if not all_prompts:
-        logger.error(f"No valid prompts were prepared for method {method}. Skipping generation and scoring.")
+        logger.error(
+            f"No valid prompts were prepared for method {method}. Skipping generation and scoring."
+        )
         return
 
     logger.info(f"Initializing generation LLM: {model_name}")
@@ -622,23 +792,31 @@ def evaluate_completion(
         trust_remote_code=trust_remote_code,
         gpu_memory_utilization=gpu_memory_utilization,
         tensor_parallel_size=tensor_parallel_size,
-        max_model_len=32768
+        max_num_seqs=1,
+        max_model_len=32768,
     )
     logger.info(f"Generation LLM {model_name} initialized.")
 
     # --- 6. Generate Completions ---
     all_outputs = []
     logger.info(f"Generating completions for {len(all_prompts)} prompts...")
-    for i in tqdm(range(0, len(all_prompts), batch_size), desc=f"Generating completions for {method}"):
-        batch_prompts = all_prompts[i:i + batch_size]
+    for i in tqdm(
+        range(0, len(all_prompts), batch_size),
+        desc=f"Generating completions for {method}",
+    ):
+        batch_prompts = all_prompts[i : i + batch_size]
         if not batch_prompts:
             continue
 
         try:
-            batch_outputs = generate_completions(llm, batch_prompts, max_new_tokens=max_new_tokens)
+            batch_outputs = generate_completions(
+                llm, batch_prompts, max_new_tokens=max_new_tokens
+            )
             all_outputs.extend(batch_outputs)
         except Exception as e:
-            logger.error(f"Error during generation for batch starting at index {i}: {e}")
+            logger.error(
+                f"Error during generation for batch starting at index {i}: {e}"
+            )
             all_outputs.extend(["ERROR_GENERATING"] * len(batch_prompts))
 
     # --- 7. Evaluate and Save Results ---
@@ -648,13 +826,17 @@ def evaluate_completion(
     valid_scores = 0
 
     if len(all_outputs) != len(original_data):
-        logger.warning(f"Warning: Mismatch between generated outputs ({len(all_outputs)}) and original data ({len(original_data)}). Scores might be inaccurate.")
+        logger.warning(
+            f"Warning: Mismatch between generated outputs ({len(all_outputs)}) and original data ({len(original_data)}). Scores might be inaccurate."
+        )
         min_len = min(len(all_outputs), len(original_data))
         all_outputs = all_outputs[:min_len]
         original_data = original_data[:min_len]
         all_prompts = all_prompts[:min_len]
 
-    logger.info(f"Calculating scores and saving results for {len(all_outputs)} examples...")
+    logger.info(
+        f"Calculating scores and saving results for {len(all_outputs)} examples..."
+    )
     # make sure that the path exists
     os.makedirs(os.path.dirname(model_output_path), exist_ok=True)
     with open(model_output_path, "w") as f_out:
@@ -662,11 +844,13 @@ def evaluate_completion(
             output = all_outputs[i]
             # Ensure index is valid for original_data and all_prompts
             if i >= len(original_data) or i >= len(all_prompts):
-                logger.error(f"Index {i} out of bounds after potential mismatch alignment. Stopping result processing.")
+                logger.error(
+                    f"Index {i} out of bounds after potential mismatch alignment. Stopping result processing."
+                )
                 break
             orig_data = original_data[i]
             prompt = all_prompts[i]
-            gt = orig_data['gt']
+            gt = orig_data["gt"]
 
             result = {
                 **orig_data,
@@ -683,11 +867,20 @@ def evaluate_completion(
                     total_es += es
                     total_em += em
                     valid_scores += 1
+                    case_ratio = orig_data.get("ratio", 0)
+                    original_tokens_example = orig_data.get("original_tokens", 0)
+                    compressed_tokens_example = orig_data.get("compressed_tokens", 0)
+
+                    logger.info(
+                        f"Case {orig_data.get('id', i)} => "
+                        f"es={es}, em={em}, ratio={case_ratio:.4f}, "
+                        f"orig_tokens={original_tokens_example}, comp_tokens={compressed_tokens_example}"
+                    )
                 except Exception as e:
                     logger.error(f"Error scoring example {orig_data.get('id', i)}: {e}")
 
-            result['es'] = es
-            result['em'] = em
+            result["es"] = es
+            result["em"] = em
             model_outputs_data.append(result)
             f_out.write(json.dumps(result) + "\n")
 
@@ -701,17 +894,34 @@ def evaluate_completion(
         "model_name": model_name,
         "method": method,
         "num_examples_scored": valid_scores,
-        "num_examples_total": len(original_data),  # Use length of original_data before potential alignment issues
+        "num_examples_total": len(
+            original_data
+        ),  # Use length of original_data before potential alignment issues
         "average_es": avg_es,
         "average_em": avg_em,
+        "total_original_tokens_all": total_original_tokens_all,
+        "total_compressed_tokens_all": total_compressed_tokens_all,
+        "compression_ratio_total_original_over_compressed": (
+            total_original_tokens_all / total_compressed_tokens_all
+            if total_compressed_tokens_all > 0
+            else 0
+        ),
         "parameters": {
             "dataset_path": dataset_path,
             "dataset_split": dataset_split,
             "filter_current_lines_max": filter_current_lines_max,
             "filter_background_tokens_min": filter_background_tokens_min,
-            "embed_model_name": embed_model_name if method == "rag" or method == "function_rag" else None,
+            "embed_model_name": (
+                embed_model_name
+                if method == "rag" or method == "function_rag"
+                else None
+            ),
             # Combine compression model name reporting
-            "compression_model_name": compression_model_name if method in ["llmlingua", "longllmlingua", "code_compressor"] else None,
+            "compression_model_name": (
+                compression_model_name
+                if method in ["llmlingua", "longllmlingua", "code_compressor"]
+                else None
+            ),
             "max_new_tokens": max_new_tokens,
             "batch_size": batch_size,
             # RAG specific params
@@ -719,32 +929,62 @@ def evaluate_completion(
             "rag_overlap": rag_overlap if method == "rag" else None,
             "rag_top_k": rag_top_k if method == "rag" else None,
             # Function RAG params
-            "function_rag_language": function_rag_language if method == "function_rag" else None,
-            "function_rag_top_k": function_rag_top_k if method == "function_rag" else None,
+            "function_rag_language": (
+                function_rag_language if method == "function_rag" else None
+            ),
+            "function_rag_top_k": (
+                function_rag_top_k if method == "function_rag" else None
+            ),
             # Lingua specific params (shared target token name)
-            "lingua_target_token": lingua_target_token if method == "llmlingua" or method == "longllmlingua" else None,
+            "lingua_target_token": (
+                lingua_target_token
+                if method == "llmlingua" or method == "longllmlingua"
+                else None
+            ),
             # LongLingua specific params
-            "longlingua_chunk_size": longlingua_chunk_size if method == "longllmlingua" else None,
-            "longlingua_overlap": longlingua_overlap if method == "longllmlingua" else None,
+            "longlingua_chunk_size": (
+                longlingua_chunk_size if method == "longllmlingua" else None
+            ),
+            "longlingua_overlap": (
+                longlingua_overlap if method == "longllmlingua" else None
+            ),
             # CodeCompressor specific params
-            "code_compressor_target_token": code_compressor_target_token if method == "code_compressor" else None,  # Added parameter
-            "code_compressor_rank_only": (code_compressor_fine_ratio == 1.0) if method == "code_compressor" else None,  # Determined by fine_ratio
-            "code_compressor_fine_ratio": code_compressor_fine_ratio if method == "code_compressor" else None,  # Added parameter
-            "importance_beta": importance_beta if method == "code_compressor" else None, # Added parameter
-        }
+            "code_compressor_target_token": (
+                code_compressor_target_token if method == "code_compressor" else None
+            ),  # Added parameter
+            "code_compressor_rank_only": (
+                (code_compressor_fine_ratio == 1.0)
+                if method == "code_compressor"
+                else None
+            ),  # Determined by fine_ratio
+            "code_compressor_fine_ratio": (
+                code_compressor_fine_ratio if method == "code_compressor" else None
+            ),  # Added parameter
+            "importance_beta": (
+                importance_beta if method == "code_compressor" else None
+            ),  # Added parameter
+        },
     }
 
-    logger.info(f"Method {method}: Avg ES = {avg_es:.2f}, Avg EM = {avg_em:.2f} ({valid_scores}/{len(original_data)} scored)")
+    logger.info(
+        f"Method {method}: Avg ES = {avg_es:.2f}, Avg EM = {avg_em:.2f} ({valid_scores}/{len(original_data)} scored)"
+    )
+    logger.info(
+        f"Total token stats: original={total_original_tokens_all}, "
+        f"compressed={total_compressed_tokens_all}, "
+        f"original/compressed={total_original_tokens_all / total_compressed_tokens_all if total_compressed_tokens_all > 0 else 0:.4f}"
+    )
     save_json(scores, score_output_path)
     logger.info(f"Scores saved to {score_output_path}")
 
     logger.info("Evaluation complete.")
     # Clean up LLM explicitly
-    if 'llm' in locals() and llm is not None:
+    if "llm" in locals() and llm is not None:
         del llm
         logger.info("Generation LLM deleted.")
     torch.cuda.empty_cache()
     gc.collect()
+
 
 if __name__ == "__main__":
     fire.Fire(evaluate_completion)
