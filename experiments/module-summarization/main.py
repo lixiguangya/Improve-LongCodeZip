@@ -16,38 +16,110 @@ from code_compressor import CodeCompressor
 import asyncio
 from itertools import cycle
 
+
+def count_tokens(text: str, tokenizer) -> int:
+    """Count tokens with a given tokenizer."""
+    if not text or not text.strip():
+        return 0
+    return len(tokenizer.encode(text, add_special_tokens=False))
+
+
+def compute_token_stats(original_text: str, compressed_text: str, tokenizer) -> dict:
+    """
+    Return:
+      original_tokens
+      compressed_tokens
+      compression_rate = compressed / original
+      larger_smaller_ratio = max(original, compressed) / min(original, compressed)
+    """
+    original_tokens = count_tokens(original_text, tokenizer)
+    compressed_tokens = count_tokens(compressed_text, tokenizer)
+
+    compression_rate = (compressed_tokens / original_tokens) if original_tokens > 0 else 1.0
+    min_tokens = min(original_tokens, compressed_tokens)
+    larger_smaller_ratio = (
+        max(original_tokens, compressed_tokens) / min_tokens
+        if min_tokens > 0 else 0.0
+    )
+
+    return {
+        "original_tokens": original_tokens,
+        "compressed_tokens": compressed_tokens,
+        "compression_rate": compression_rate,
+        "larger_smaller_ratio": larger_smaller_ratio,
+    }
+
+
+def summarize_token_stats(samples_data: list) -> dict:
+    """
+    Aggregate token statistics from all samples.
+    If a sample has no compressed_tokens, fallback to original_tokens.
+    """
+    total_original_tokens = 0
+    total_compressed_tokens = 0
+    counted_samples = 0
+
+    for sample in samples_data:
+        if not sample:
+            continue
+
+        if "original_tokens" not in sample:
+            continue
+
+        total_original_tokens += int(sample.get("original_tokens", 0))
+        total_compressed_tokens += int(sample.get("compressed_tokens", sample.get("original_tokens", 0)))
+        counted_samples += 1
+
+    overall_compression_rate = (
+        total_compressed_tokens / total_original_tokens
+        if total_original_tokens > 0 else 1.0
+    )
+    larger_smaller_ratio = (
+        max(total_original_tokens, total_compressed_tokens) / min(total_original_tokens, total_compressed_tokens)
+        if min(total_original_tokens, total_compressed_tokens) > 0 else 0.0
+    )
+
+    return {
+        "counted_samples": counted_samples,
+        "total_original_tokens": total_original_tokens,
+        "total_compressed_tokens": total_compressed_tokens,
+        "compression_rate": overall_compression_rate,
+        "larger_smaller_ratio": larger_smaller_ratio,
+    }
+
+
 class LLMGenerator:
     def __init__(self, model_name, device, **model_args):
         # Create a vllm LLM instance
-        engine_args = EngineArgs(model=model_name, gpu_memory_utilization=0.8, device=device, **model_args)
+        engine_args = EngineArgs(model=model_name, gpu_memory_utilization=0.6, **model_args)
         self.model = LLM(**vars(engine_args))
         self.model_name = model_name
         self.device = device
         # Use the tokenizer from the model to ensure consistency
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        
+
     def generate(self, prompt, max_tokens=2048, temperature=0.0):
         logger.debug(f"Generation input prompt: {truncate_text(prompt)}")
-        
+
         # Convert to chat format
         conversation = [
             {"role": "system", "content": "You are a documentation generating assistant specialized in code understanding."},
             {"role": "user", "content": prompt}
         ]
-        
+
         sampling_params = SamplingParams(
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=1.0,
             top_k=50,
         )
-        
+
         outputs = self.model.chat(conversation, sampling_params, use_tqdm=False)
         result = outputs[0].outputs[0].text
-        
+
         logger.debug(f"Generation output: {truncate_text(result)}")
         return result
-    
+
     def free_memory(self):
         """Release model resources to free GPU memory"""
         del self.model
@@ -64,38 +136,38 @@ class LLMScorer:
         self.device = device
         # Use the tokenizer from the model to ensure consistency
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        
+
     def score_options(self, query, options):
         # Convert to a chat format query
         conversation = [
             {"role": "system", "content": "You are a code quality assessing engine."},
             {"role": "user", "content": query}
         ]
-        
+
         logger.debug(f"Scoring input query: {truncate_text(query)}")
         logger.debug(f"Scoring options: {options}")
-        
+
         sampling_params = SamplingParams(
             max_tokens=1,
             temperature=0.3,
             logprobs=20,
         )
-        
+
         # Get the completion with logprobs
         outputs = self.model.chat(conversation, sampling_params, use_tqdm=False)
         output = outputs[0].outputs[0]
-        
+
         # Debug output structure
         logger.debug(f"Output structure: {type(output)}")
         logger.debug(f"Logprobs structure: {type(output.logprobs)}")
-        
+
         # Extract logprobs for the options
         logprobs = torch.zeros(len(options))
         found_options = set()
-        
+
         # Convert options to lowercase for case-insensitive matching
         option_map = {opt.lower(): i for i, opt in enumerate(options)}
-        
+
         # Extract logprobs from the output
         for token_dict in output.logprobs:
             # Each item is a dictionary with token_id -> Logprob object
@@ -104,20 +176,20 @@ class LLMScorer:
                     # Directly access the token and logprob attributes
                     token = logprob_obj.decoded_token.strip().lower()
                     logprob_value = logprob_obj.logprob
-                    
+
                     # Check if this token matches one of our options
                     if token in option_map and option_map[token] not in found_options:
                         logprobs[option_map[token]] = logprob_value
                         found_options.add(option_map[token])
                         logger.debug(f"Found option: {token} with logprob: {logprob_value}")
-                
+
                 except AttributeError:
                     # If the object doesn't have the expected attributes, skip it
                     continue
                 except Exception as e:
                     logger.error(f"Error processing token: {e}")
                     continue
-        
+
         # Special case for options A and B
         if not found_options and len(output.logprobs) > 0:
             for token_dict in output.logprobs:
@@ -125,7 +197,7 @@ class LLMScorer:
                     try:
                         # Check specifically for A or B tokens
                         token = logprob_obj.decoded_token.strip().lower()
-                        
+
                         if token in ['a', 'b'] and option_map.get(token) not in found_options:
                             logprobs[option_map[token]] = logprob_obj.logprob
                             found_options.add(option_map[token])
@@ -133,17 +205,17 @@ class LLMScorer:
                     except Exception as e:
                         logger.error(f"Error processing token for A/B check: {e}")
                         continue
-        
+
         # If some options weren't found, assign a very low logprob
         min_prob = logprobs[list(found_options)].min().item() if found_options else -100
         for i in range(len(options)):
             if i not in found_options:
                 logprobs[i] = min_prob - 2.3  # approximately 10 times less
-        
+
         logger.debug(f"Final scoring output logprobs: {logprobs}")
-        
+
         return logprobs
-    
+
     def free_memory(self):
         """Release model resources to free GPU memory"""
         del self.model
@@ -156,20 +228,20 @@ class GPTScorer:
         self.model_name = model_name
         # Use transformers tokenizer instead of tiktoken
         self.tokenizer = AutoTokenizer.from_pretrained("gpt2")  # Using gpt2 tokenizer as a good approximation
-        
+
         # Array of API tokens for rotation
         self.api_tokens = [
-            "your_api_key"
+            "sk-4i6SIlsMXPDO54quE5B8492aDa5b4bA7B2E3Cf583b630a05"
         ]
         self.token_iterator = cycle(self.api_tokens)
-        
+
         # Initialize OpenAI client with the first token
         self.current_token = next(self.token_iterator)
         self.client = OpenAI(
             api_key=self.current_token
         )
         logger.debug(f"Initialized GPTScorer with model: {model_name}")
-    
+
     def rotate_token(self):
         """Rotate to the next API token"""
         self.current_token = next(self.token_iterator)
@@ -177,11 +249,11 @@ class GPTScorer:
             api_key=self.current_token
         )
         logger.debug(f"Rotated to next API token")
-    
+
     def score_options(self, query, options):
         logger.debug(f"Scoring input query: {truncate_text(query)}")
         logger.debug(f"Scoring options: {options}")
-        
+
         # Create logit bias to prioritize the option tokens
         logit_bias = dict()
         for opt in options:
@@ -192,7 +264,7 @@ class GPTScorer:
             else:
                 logger.warning(f"Option '{opt}' encodes to multiple tokens {tok_ids}, using first token only")
                 logit_bias[tok_ids[0]] = 100
-        
+
         # Try up to 3 times with token rotation on failure
         for attempt in range(3):
             try:
@@ -210,14 +282,14 @@ class GPTScorer:
                     top_logprobs=20,
                     logit_bias=logit_bias
                 )
-                
+
                 # Process the results
                 logprobs = np.full(len(options), np.nan)
                 choice = completion.choices[0]
                 logger.debug(f"Choice: {choice}")
                 opt_to_idx = {t: n for n, t in enumerate(options)}
                 min_lp = 0
-                
+
                 try:
                     for logprob_item in choice.logprobs.content[0].top_logprobs:
                         tok = logprob_item.token
@@ -225,7 +297,7 @@ class GPTScorer:
                         min_lp = min(min_lp, lp)
                         if tok in opt_to_idx:
                             logprobs[opt_to_idx[tok]] = lp
-                    
+
                     # If any options weren't found, assign them a low probability
                     logprobs[np.isnan(logprobs)] = min_lp - 2.3
                     assert not np.isnan(logprobs).any()
@@ -234,7 +306,7 @@ class GPTScorer:
                     logger.error(f"Error processing logprobs: {e}")
                     # Return equal logprobs in case of error
                     return torch.zeros(len(options))
-                    
+
             except Exception as e:
                 logger.warning(f"API call failed (attempt {attempt+1}/3): {e}")
                 # Rotate token on failure
@@ -242,17 +314,17 @@ class GPTScorer:
                 if attempt == 2:  # Last attempt failed
                     logger.error("All API attempts failed")
                     return torch.zeros(len(options))
-        
+
         logger.debug(f"Final scoring output logprobs: {logprobs}")
         return torch.from_numpy(logprobs)
-    
+
     async def async_score_options(self, query, options):
         """Asynchronous version of score_options that runs in a thread pool"""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None, self.score_options, query, options
         )
-    
+
     def free_memory(self):
         """Release any resources"""
         # Nothing to free for API-based model
@@ -502,16 +574,16 @@ def split_code_by_functions_standalone(code: str, language: str = "python") -> l
     """
     Split code into chunks based on function and class definitions for various languages.
     Standalone version that doesn't require CodeCompressor instance.
-    
+
     Args:
         code: The code to split
         language: Programming language of the code (python, cpp, java, typescript, rust, go)
-        
+
     Returns:
         List of code chunks, each containing a function, class, or class method
     """
     import re
-    
+
     # Define regex patterns for different languages
     patterns = {
         # Python: Simplified to match 'def' or 'class' followed by content until the next def/class or end
@@ -527,39 +599,39 @@ def split_code_by_functions_standalone(code: str, language: str = "python") -> l
         # Go: Improved for multi-line function declarations
         "go": r'(^|\n)(\s*)(?:type\s+[a-zA-Z_][a-zA-Z0-9_]*\s+struct|func\s+(?:\([^)]*\)\s*)?[a-zA-Z_][a-zA-Z0-9_]*\s*\([^{;]*\)(?:\s*[^{;]*\s*)?)\s*(?:{[^}]*}|[^;]*;)?',
     }
-    
+
     # Use default Python pattern if language not supported
     if language.lower() not in patterns:
         language = "python"
-    
+
     function_pattern = re.compile(patterns[language.lower()], re.MULTILINE)
     matches = list(function_pattern.finditer(code))
-    
+
     if not matches:
         return [code] if code.strip() else []  # No matches, return whole code if not empty
-        
+
     result_chunks = []
-    
+
     # Add code before first match if exists
     if matches[0].start() > 0:
         pre_code = code[:matches[0].start()].strip()
         if pre_code:
             result_chunks.append(pre_code)
-    
+
     # Process each match
     for i, match in enumerate(matches):
         start = match.start()
-        
+
         # End is either start of next match or end of code
         if i < len(matches) - 1:
             end = matches[i + 1].start()
         else:
             end = len(code)
-        
+
         chunk = code[start:end].strip()
         if chunk:
             result_chunks.append(chunk)
-    
+
     return result_chunks
 
 
@@ -598,13 +670,13 @@ def function_rag_retrieve(background_code: str, query_code: str, model, tokenize
     # Select chunks within budget
     selected_chunks = []
     current_tokens = 0
-    
+
     for idx in sorted_indices:
         chunk = valid_chunks[idx.item()]
-        
+
         # Calculate tokens for this chunk
         chunk_tokens = len(tokenizer.encode(chunk, add_special_tokens=False))
-        
+
         # Check if adding this chunk would exceed budget
         if current_tokens + chunk_tokens <= budget:
             selected_chunks.append((chunk, similarities[idx].item()))
@@ -621,7 +693,7 @@ def function_rag_retrieve(background_code: str, query_code: str, model, tokenize
                     selected_chunks.append((truncated_chunk, similarities[idx].item()))
                     current_tokens = budget
             break
-        
+
         # Stop if we've reached the budget
         if current_tokens >= budget:
             break
@@ -632,12 +704,12 @@ def function_rag_retrieve(background_code: str, query_code: str, model, tokenize
     # Sort selected chunks by their original position in the code to maintain structure
     # We'll use the similarity score for this approximation since we don't have direct position info
     selected_chunks.sort(key=lambda x: x[1], reverse=True)  # Keep similarity order for now
-    
+
     # Combine selected chunks
     combined_code = "\n\n".join([chunk for chunk, _ in selected_chunks])
-    
+
     logger.info(f"Function RAG: Selected {len(selected_chunks)} functions using {current_tokens}/{budget} tokens")
-    
+
     return combined_code
 
 
@@ -646,28 +718,28 @@ async def async_get_metric(scorer, intent, code_context, gold_doc, pred_doc):
     logger.debug(f"Gold doc: {truncate_text(gold_doc)}")
     logger.debug(f"Pred doc: {truncate_text(pred_doc)}")
     logger.debug(f"Gold doc length: {len(gold_doc)}, Pred doc length: {len(pred_doc)}")
-    
-    prompt = f'I have 2 different documentations about {intent}. Decide which documentation is better: documentation A or documentation B.\n\n' 
+
+    prompt = f'I have 2 different documentations about {intent}. Decide which documentation is better: documentation A or documentation B.\n\n'
     prompt += f'My code:\n\n{code_context}\n\n\n\n'
     prompt += f'Documentation A:\n\n{gold_doc}\n\n\n\n'
     prompt += f'Documentation B:\n\n{pred_doc}\n\n\n\n'
     prompt += 'Please directly return the option that is better (A or B) without any other text.'
-    
+
     options = ["A", "B"]
     unnorm_logprobs = await scorer.async_score_options(prompt, options)
     norm_probs1 = torch.exp(torch.log_softmax(unnorm_logprobs, dim=0))
-    
-    prompt = f'I have 2 different documentations about {intent}. Decide which documentation is better: documentation A or documentation B.\n\n' 
+
+    prompt = f'I have 2 different documentations about {intent}. Decide which documentation is better: documentation A or documentation B.\n\n'
     prompt += f'My code:\n\n{code_context}\n\n\n\n'
     prompt += f'Documentation A:\n\n{pred_doc}\n\n\n\n'
     prompt += f'Documentation B:\n\n{gold_doc}\n\n\n\n'
     prompt += 'Please directly return the option that is better (A or B) without any other text.'
     unnorm_logprobs = await scorer.async_score_options(prompt, options)
     norm_probs2 = torch.exp(torch.log_softmax(unnorm_logprobs, dim=0))
-    
-    p_better1 = (norm_probs1[1] + norm_probs2[0]) / 2 
+
+    p_better1 = (norm_probs1[1] + norm_probs2[0]) / 2
     logger.debug(f"First evaluation: {norm_probs1}, Second evaluation: {norm_probs2}, Final score: {p_better1}")
-    
+
     return float(p_better1)
 
 
@@ -676,50 +748,50 @@ def get_metric(scorer, intent, code_context, gold_doc, pred_doc):
     logger.debug(f"Gold doc: {truncate_text(gold_doc)}")
     logger.debug(f"Pred doc: {truncate_text(pred_doc)}")
     logger.debug(f"Gold doc length: {len(gold_doc)}, Pred doc length: {len(pred_doc)}")
-    
-    prompt = f'I have 2 different documentations about {intent}. Decide which documentation is better: documentation A or documentation B.\n\n' 
+
+    prompt = f'I have 2 different documentations about {intent}. Decide which documentation is better: documentation A or documentation B.\n\n'
     prompt += f'My code:\n\n{code_context}\n\n\n\n'
     prompt += f'Documentation A:\n\n{gold_doc}\n\n\n\n'
     prompt += f'Documentation B:\n\n{pred_doc}\n\n\n\n'
     prompt += 'Please directly return the option that is better (A or B) without any other text.'
-    
+
     options = ["A", "B"]
     unnorm_logprobs = scorer.score_options(prompt, options)
     norm_probs1 = torch.exp(torch.log_softmax(unnorm_logprobs, dim=0))
-    
-    prompt = f'I have 2 different documentations about {intent}. Decide which documentation is better: documentation A or documentation B.\n\n' 
+
+    prompt = f'I have 2 different documentations about {intent}. Decide which documentation is better: documentation A or documentation B.\n\n'
     prompt += f'My code:\n\n{code_context}\n\n\n\n'
     prompt += f'Documentation A:\n\n{pred_doc}\n\n\n\n'
     prompt += f'Documentation B:\n\n{gold_doc}\n\n\n\n'
     prompt += 'Please directly return the option that is better (A or B) without any other text.'
     unnorm_logprobs = scorer.score_options(prompt, options)
     norm_probs2 = torch.exp(torch.log_softmax(unnorm_logprobs, dim=0))
-    
-    p_better1 = (norm_probs1[1] + norm_probs2[0]) / 2 
+
+    p_better1 = (norm_probs1[1] + norm_probs2[0]) / 2
     logger.debug(f"First evaluation: {norm_probs1}, Second evaluation: {norm_probs2}, Final score: {p_better1}")
-    
+
     return float(p_better1)
 
 
 async def evaluate_batch(batch_data, scorer, samples_data, method, is_async=True):
     """Evaluate a batch of samples"""
     results = []
-    
+
     for item in batch_data:
         idx, row = item
         gold_doc = row['target_text']
-        
+
         # Skip if sample data doesn't exist
         if idx >= len(samples_data) or not samples_data[idx]:
             logger.warning(f"Sample data not found for sample {idx}. Skipping evaluation.")
             continue
-            
+
         # Get sample data
         sample_data = samples_data[idx]
         pred_doc = sample_data.get('generated_text', '')
-        
+
         code_context = row['relevant_code_context']
-        
+
         # Use the appropriate metric function based on whether the scorer is async
         if is_async:
             metric = await async_get_metric(scorer, row['intent'], code_context, gold_doc, pred_doc)
@@ -729,12 +801,12 @@ async def evaluate_batch(batch_data, scorer, samples_data, method, is_async=True
             metric = await loop.run_in_executor(
                 None, get_metric, scorer, row['intent'], code_context, gold_doc, pred_doc
             )
-        
+
         # Update sample data with evaluation score
         sample_data['generation_score'] = float(metric)
-        
+
         results.append((idx, metric, sample_data))
-    
+
     return results
 
 
@@ -742,35 +814,35 @@ async def run_parallel_evaluation(dataset, scorer, samples_data, method, num_pro
     """Run evaluation in parallel using specified number of processes"""
     # Prepare data with indices
     indexed_data = list(enumerate(dataset))
-    
+
     # Split data into chunks for each process
     chunk_size = len(indexed_data) // num_processes
     if chunk_size == 0:
         chunk_size = 1
-    
-    batches = [indexed_data[i:i+chunk_size] for i in range(0, len(indexed_data), chunk_size)]
-    
+
+    batches = [indexed_data[i:i + chunk_size] for i in range(0, len(indexed_data), chunk_size)]
+
     # Ensure we don't create more batches than needed
     batches = batches[:num_processes]
-    
+
     # Create tasks for each batch
     tasks = [evaluate_batch(batch, scorer, samples_data, method, is_async) for batch in batches]
-    
+
     # Run all batches concurrently and collect results
     batch_results = await asyncio.gather(*tasks)
-    
+
     # Flatten results
     all_results = []
     for batch in batch_results:
         all_results.extend(batch)
-    
+
     # Sort by sample index
     all_results.sort(key=lambda x: x[0])
-    
+
     # Extract metrics and metadata
     metrics = [r[1] for r in all_results]
     detailed_results = [r[2] for r in all_results]
-    
+
     return metrics, detailed_results
 
 
@@ -788,7 +860,7 @@ def run_documentation_task(
     max_tokens: int = 2048,
     temperature: float = 0.0,
     # Context method parameters
-    method: str = "full",
+    method: str = "code_compressor",
     # RAG parameters
     rag_window_size: int = 80,
     rag_overlap: int = 40,
@@ -804,9 +876,9 @@ def run_documentation_task(
     longlingua_chunk_size: int = 80,
     longlingua_overlap: int = 40,
     # CodeCompressor parameters
-    code_compressor_target_token: int = 500,
-    code_compressor_fine_ratio: float = 1.0,
-    importance_beta: float = 0.0,
+    code_compressor_target_token: int = 2000,
+    code_compressor_fine_ratio: float = 0.3,
+    importance_beta: float = 0.5,
     # Task parameters
     mode: str = "both",
     save_dir: str = "./predictions",
@@ -817,13 +889,13 @@ def run_documentation_task(
     num_eval_processes: int = 4
 ):
     """Run documentation generation and evaluation with the specified parameters."""
-    
+
     # Get model short name from argument or extract from model path
     model_short_name = model_name
     if model_short_name is None:
         # Extract model name from path - use last component after / or use the whole string
         model_short_name = gen_model.split('/')[-1] if '/' in gen_model else gen_model
-    
+
     if compress_model is None:
         compress_model = gen_model
         logger.info(f"Using generation model for compression: {compress_model}")
@@ -846,30 +918,33 @@ def run_documentation_task(
         if importance_beta > 0:
             suffix_detail += f"_b{importance_beta}"
         method_suffix += f"_t{code_compressor_target_token}{suffix_detail}"
-    
+
     # Create method-specific directory
     model_save_dir = os.path.join(save_dir, method_suffix, model_short_name)
     if not os.path.exists(model_save_dir):
         os.makedirs(model_save_dir)
-    
+
     # Path to our single results JSON file
     results_json_path = os.path.join(model_save_dir, "detailed_results.json")
-    
+
     # Load dataset
     print("Loading dataset")
     dataset = load_dataset_samples(
         max_examples=max_examples,
         hf_api_key=hf_api_key
     )
-    
+
     # Common model args for both generator and scorer
     model_args = {
         "tensor_parallel_size": tensor_parallel_size,
     }
 
+    # Use the generation tokenizer for token statistics
+    stats_tokenizer = AutoTokenizer.from_pretrained(gen_model)
+
     # Initialize or load samples data
     samples_data = []
-    
+
     # Check if results file exists (for continuing an interrupted run)
     if os.path.exists(results_json_path):
         try:
@@ -887,35 +962,35 @@ def run_documentation_task(
     else:
         # Initialize with empty slots for each sample
         samples_data = [None] * len(dataset)
-    
+
     # Generation phase - split into compression and generation steps
     if mode in ["generate", "both"]:
         # Step 1: Compress contexts first if needed
         if method not in ["full", "no_context"]:
             print(f"Step 1: Preparing contexts using {method} method...")
-            
+
             # Initialize context preparation models based on method
             embed_model = None
             embed_tokenizer = None
             lingua_compressor = None
             code_compressor_instance = None
-            
+
             if method == "rag":
                 print(f"Initializing embedding model: {embed_model_name}")
                 embed_tokenizer = AutoTokenizer.from_pretrained(embed_model_name)
                 embed_model = AutoModel.from_pretrained(embed_model_name).to(device)
                 embed_model.eval()  # Set to evaluation mode
-            
+
             if method == "function_rag":
                 print(f"Initializing embedding model for function RAG: {embed_model_name}")
                 embed_tokenizer = AutoTokenizer.from_pretrained(embed_model_name)
                 embed_model = AutoModel.from_pretrained(embed_model_name).to(device)
                 embed_model.eval()  # Set to evaluation mode
-            
+
             if method == "llmlingua" or method == "longllmlingua":
                 print(f"Initializing LLMLingua compressor")
                 lingua_compressor = PromptCompressor(model_name=gen_model, device_map="auto")
-            
+
             if method == "code_compressor":
                 try:
                     print(f"Initializing CodeCompressor")
@@ -923,20 +998,20 @@ def run_documentation_task(
                 except Exception as e:
                     print(f"Failed to initialize CodeCompressor: {e}. Falling back to full context.")
                     method = "full"
-            
+
             # Process and compress all contexts
             for idx, row in tqdm(enumerate(dataset), total=len(dataset), desc="Compressing contexts"):
                 # If sample already has context processing, skip
-                if samples_data[idx] and 'processed_context' in samples_data[idx]:
+                if samples_data[idx] and 'processed_context' in samples_data[idx] and 'original_tokens' in samples_data[idx]:
                     continue
-                    
+
                 # Get the context
                 code_context = row['relevant_code_context']
-                
+
                 # Process context based on the selected method
                 processed_context = code_context
                 language = "python"  # Default language, could be determined dynamically
-                
+
                 try:
                     if method == "rag":
                         # Split the context and retrieve relevant parts
@@ -992,7 +1067,10 @@ def run_documentation_task(
                     logger.error(f"Error during context preparation with method {method}: {e}", exc_info=True)
                     # Fallback to full context in case of error
                     processed_context = code_context
-                
+
+                # Compute token stats for this sample
+                token_stats = compute_token_stats(code_context, processed_context, stats_tokenizer)
+
                 # Create or update sample data
                 sample_data = samples_data[idx] or {}
                 sample_data.update({
@@ -1002,6 +1080,10 @@ def run_documentation_task(
                     'target_text': row['target_text'],
                     'original_context': code_context,
                     'processed_context': processed_context,
+
+                    # Added token stats
+                    **token_stats,
+
                     'context_compression': {
                         'method': method,
                         'original_length': len(code_context),
@@ -1035,15 +1117,17 @@ def run_documentation_task(
                         }
                     }
                 })
-                
+
                 # Update samples data
                 samples_data[idx] = sample_data
-                
+
                 # Save the updated results file periodically
                 if idx % 10 == 0 or idx == len(dataset) - 1:
+                    token_summary = summarize_token_stats(samples_data)
                     results_data = {
                         'model': model_short_name,
                         'method': method,
+                        'compression_stats': token_summary,
                         'method_params': {
                             'type': method,
                             'rag_params': {
@@ -1078,7 +1162,7 @@ def run_documentation_task(
                         os.makedirs(os.path.dirname(results_json_path))
                     with open(results_json_path, 'w') as f:
                         json.dump(results_data, f, indent=2)
-            
+
             # Free up context preparation resources
             print("Cleaning up context preparation resources...")
             if embed_model:
@@ -1091,11 +1175,11 @@ def run_documentation_task(
                 del code_compressor_instance
             torch.cuda.empty_cache()
             gc.collect()
-        
+
         # Step 2: Generate documentation using the (potentially compressed) contexts
         print(f"Step 2: Initializing generation model: {gen_model}")
         generator = LLMGenerator(gen_model, device, **model_args)
-        
+
         # Define a token limit for context when method is "full"
         MAX_CONTEXT_TOKENS_FOR_FULL_METHOD = 30000
 
@@ -1104,21 +1188,21 @@ def run_documentation_task(
             # Skip if this sample already has generated text
             if samples_data[idx] and 'generated_text' in samples_data[idx]:
                 continue
-                
+
             # Create or load sample data
             sample_data = samples_data[idx] or {}
-            
+
             # Determine context to use
             if method not in ["full", "no_context"] and sample_data.get('processed_context'):
                 context = sample_data.get('processed_context')
             else:
                 # For full or no_context methods
                 context = row['relevant_code_context']
-                
+
                 # For no_context, use minimal information
                 if method == "no_context":
                     context = f"Generate documentation for {row['docfile_name']} about {row['intent']}"
-                
+
                 # Update sample data with context info if not already there
                 if 'original_context' not in sample_data:
                     sample_data.update({
@@ -1129,7 +1213,16 @@ def run_documentation_task(
                         'original_context': row['relevant_code_context'],
                         'processed_context': None if method == "full" else context
                     })
-            
+
+                # If token stats do not exist yet, compute them here too
+                if 'original_tokens' not in sample_data or 'compressed_tokens' not in sample_data:
+                    token_stats = compute_token_stats(
+                        row['relevant_code_context'],
+                        context,
+                        stats_tokenizer
+                    )
+                    sample_data.update(token_stats)
+
             # Truncate context if method is "full" and context is too long
             if method == "full":
                 context_tokens = generator.tokenizer.encode(context)
@@ -1145,9 +1238,9 @@ def run_documentation_task(
             prompt = f'Using the code provided, generate documentation for {row["docfile_name"]} about {row["intent"]}.\n\n'
             prompt += f'Code:\n\n{context}'
             prompt += f'\n\n\nReturn only the documentation text for {row["docfile_name"]} about {row["intent"]}. Do not include instructions or explanations.'
-            
+
             generated_doc = generator.generate(prompt, max_tokens, temperature)
-            
+
             # Update sample data with generated text
             sample_data.update({
                 'generated_text': generated_doc,
@@ -1182,15 +1275,17 @@ def run_documentation_task(
                     } if method == "code_compressor" else None
                 }
             })
-            
+
             # Update samples data
             samples_data[idx] = sample_data
-            
+
             # Save the updated results file periodically
             if idx % 10 == 0 or idx == len(dataset) - 1:
+                token_summary = summarize_token_stats(samples_data)
                 results_data = {
                     'model': model_short_name,
                     'method': method,
+                    'compression_stats': token_summary,
                     'method_params': {
                         'type': method,
                         'rag_params': {
@@ -1225,14 +1320,14 @@ def run_documentation_task(
                     os.makedirs(os.path.dirname(results_json_path))
                 with open(results_json_path, 'w') as f:
                     json.dump(results_data, f, indent=2)
-        
+
         # Free up memory after generation
         print("Freeing generator memory...")
         generator.free_memory()
         del generator
         torch.cuda.empty_cache()
         gc.collect()
-    
+
     # Evaluation phase
     if mode in ["evaluate", "both"]:
         # Initialize the scorer based on the model type
@@ -1244,33 +1339,47 @@ def run_documentation_task(
             print(f"Initializing GPT evaluation model: {eval_model}")
             scorer = GPTScorer(eval_model, **model_args)
             is_async = True
-        
+
         print(f"Evaluating documentation with {num_eval_processes} parallel processes...")
-        
+
         # Use asyncio to run evaluation in parallel
         metrics, detailed_results = asyncio.run(
             run_parallel_evaluation(dataset, scorer, samples_data, method, num_eval_processes, is_async)
         )
-        
+
         # Update samples data with evaluation scores
         for idx, result in enumerate(detailed_results):
             if idx < len(samples_data) and samples_data[idx]:
                 # Update with evaluation score
                 samples_data[idx]['generation_score'] = result.get('generation_score')
-        
+
         average_metric = np.mean([s.get('generation_score', 0) for s in samples_data if s and 'generation_score' in s])
         print(f"Average evaluation metric: {average_metric:.4f}")
-        
+
+        # Recompute token stats one last time before saving
+        token_summary = summarize_token_stats(samples_data)
+        print("Token statistics:")
+        print(f"  Counted samples: {token_summary['counted_samples']}")
+        print(f"  Total original tokens: {token_summary['total_original_tokens']}")
+        print(f"  Total compressed tokens: {token_summary['total_compressed_tokens']}")
+        print(f"  Compression rate (compressed/original): {token_summary['compression_rate']:.6f}")
+        print(f"  Larger/smaller ratio: {token_summary['larger_smaller_ratio']:.6f}")
+
         # Save evaluation results
         if not os.path.exists(os.path.dirname(results_json_path)):
             os.makedirs(os.path.dirname(results_json_path))
         with open(os.path.join(model_save_dir, "metrics.txt"), 'w') as f:
             f.write(f"Average metric: {average_metric:.4f}\n")
+            f.write(f"Counted samples: {token_summary['counted_samples']}\n")
+            f.write(f"Total original tokens: {token_summary['total_original_tokens']}\n")
+            f.write(f"Total compressed tokens: {token_summary['total_compressed_tokens']}\n")
+            f.write(f"Compression rate (compressed/original): {token_summary['compression_rate']:.6f}\n")
+            f.write(f"Larger/smaller ratio: {token_summary['larger_smaller_ratio']:.6f}\n")
             f.write("Individual metrics:\n")
             for idx, sample in enumerate(samples_data):
                 if sample and 'generation_score' in sample:
                     f.write(f"Sample {idx}: {sample['generation_score']:.4f}\n")
-        
+
         # Save final detailed results
         if not os.path.exists(os.path.dirname(results_json_path)):
             os.makedirs(os.path.dirname(results_json_path))
@@ -1278,6 +1387,7 @@ def run_documentation_task(
             results_data = {
                 'model': model_short_name,
                 'method': method,
+                'compression_stats': token_summary,
                 'method_params': {
                     'type': method,
                     'rag_params': {
@@ -1308,11 +1418,10 @@ def run_documentation_task(
                 'samples': samples_data
             }
             json.dump(results_data, f, indent=2)
-        
+
         # Free up scorer memory
         scorer.free_memory()
 
 
 if __name__ == "__main__":
-
     fire.Fire(run_documentation_task)

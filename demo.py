@@ -46,21 +46,37 @@ def generate_completion(
             generated = generated.strip()
 
     else:
-        tokenizer = AutoTokenizer.from_pretrained(generation_model)
-        model = AutoModelForCausalLM.from_pretrained(
+        tokenizer = AutoTokenizer.from_pretrained(
             generation_model,
-            torch_dtype=torch.float16,
-            device_map="auto"
-        )
-        tokenized = tokenizer(prompt, return_tensors="pt").to(model.device)
-        output_ids = model.generate(
-            **tokenized,
-            max_new_tokens=max_new_tokens,
-            pad_token_id=tokenizer.eos_token_id
+            trust_remote_code=True
         )
 
+        model = AutoModelForCausalLM.from_pretrained(
+            generation_model,
+            trust_remote_code=True,
+            torch_dtype=torch.float16,   # ✅ 必须 FP16
+            device_map="auto"
+        )
+
+        inputs = tokenizer(
+            prompt,
+            return_tensors="pt",
+            truncation=True,
+            max_length=4096
+        ).to(model.device)
+
+        with torch.no_grad():
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,          # 🔒 核心：greedy
+                repetition_penalty=1.1,
+                pad_token_id=tokenizer.eos_token_id,
+                eos_token_id=tokenizer.eos_token_id
+            )
+
         generated = tokenizer.decode(
-            output_ids[0][len(tokenized.input_ids[0]):],
+            output_ids[0][inputs.input_ids.shape[1]:],
             skip_special_tokens=True
         ).strip()
     

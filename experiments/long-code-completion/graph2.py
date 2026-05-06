@@ -809,32 +809,15 @@ def compute_block_stats(
 
 def semantic_dependency_count(stats: Dict[str, Any]) -> int:
     """
-    Return one dependency signal for block selection.
+    Dependency score used by l8 block selection.
 
-    `used_by_total` catches definition/setup blocks that later code relies on.
-    `depends_on_total` catches consumer/check/branch blocks that encode how the
-    setup is used. l5 uses a weighted bi-directional signal instead of only
-    `used_by_total` or only max(), so control consumers such as branch bodies,
-    assertions and post-processing statements can survive moderate compression.
+    Preserve the first group's successful signal: used_by_total, i.e. how many
+    other blocks depend on this block. The consumer-side counts remain available
+    for analysis, but l4/l5 showed that mixing them into selection can push out
+    setup/definition blocks needed for exact completion.
     """
     used_by_total = safe_int(stats.get("used_by_total", 0), 0)
-    depends_on_total = safe_int(stats.get("depends_on_total", 0), 0)
-    ddg_used_by_total = safe_int(stats.get("ddg_used_by_total", 0), 0)
-    ddg_depends_on_total = safe_int(stats.get("ddg_depends_on_total", 0), 0)
-    cdg_used_by_total = safe_int(stats.get("cdg_used_by_total", 0), 0)
-    cdg_depends_on_total = safe_int(stats.get("cdg_depends_on_total", 0), 0)
-    internal_edges = safe_int(stats.get("internal_edges", 0), 0)
-
-    score = (
-        0.55 * used_by_total
-        + 0.45 * depends_on_total
-        + 0.25 * ddg_used_by_total
-        + 0.20 * ddg_depends_on_total
-        + 0.12 * cdg_used_by_total
-        + 0.28 * cdg_depends_on_total
-        + 0.04 * min(internal_edges, 8)
-    )
-    return max(max(used_by_total, depends_on_total), int(score + 0.999))
+    return max(0, used_by_total)
 
 
 # =========================================================

@@ -4,19 +4,620 @@ from typing import List, Union, Tuple, Dict, Optional
 import re
 import math
 import zlib
+import hashlib
+import sys
+from pathlib import Path
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import time
 from tqdm import tqdm
-import logging
 import copy
 import bisect
 import json
+import ast
+import textwrap
+import logging
+from functools import lru_cache
+from loguru import logger
 
-# set up the logger
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("CodeCompressor")
+# 新增导入
+import sys
+import tempfile
+from pathlib import Path
+
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
+try:
+    import split_code as semantic_splitter
+except Exception as _split_code_import_error:
+    semantic_splitter = None
+    logger.warning(f"Failed to import split_code.py: {_split_code_import_error}")
+
+class EntropyChunking:
+    def __init__(self, model_name="Qwen/Qwen2.5-Coder-0.5B-Instruct"):
+        """Entropy-based text chunking implementation"""
+        logger.debug(f"Loading Entropy chunking model: {model_name}")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+        
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        logger.debug(f"Entropy chunking model loaded on device: {self.device}")
+
+    def split_into_sentences(self, text: str) -> List[str]:
+        """Split text into sentences, inserting empty lines for double newlines"""
+        # First replace double newlines with a special marker
+        text_with_markers = text.replace('\n\n', '\n__EMPTY_LINE__\n')
+        
+        # Split by single newlines
+        lines = text_with_markers.split('\n')
+        
+        # Process lines: replace markers with empty strings, keep original lines
+        sentences = []
+        for line in lines:
+            if line == '__EMPTY_LINE__':
+                sentences.append(' ')  # Empty line for double newline breaks
+            else:
+                sentences.append(line)  # Keep original line with indentation
+        
+        return sentences
+
+    def calculate_sentence_ppl(self, sentences: List[str]) -> List[float]:
+        """Calculate perplexity for each sentence based on preceding context"""
+        ppls = []
+        
+        for i, sentence in enumerate(sentences):
+            if i == 0:
+                context = ""
+                target = sentence
+            else:
+                context = "\n".join(sentences[:i])
+                target = sentence
+            
+            ppl = self._compute_ppl(context, target)
+            ppls.append(ppl)
+        
+        return ppls
+
+    def _compute_ppl(self, context: str, target: str) -> float:
+        """Compute perplexity of target text given context"""
+        # Handle empty target lines
+        if not target:
+            return 0.0  # Assign zero perplexity to empty lines
+            
+        if context:
+            full_text = context + "\n" + target
+            context_tokens = self.tokenizer(context + "\n", return_tensors="pt", add_special_tokens=True)
+            context_length = context_tokens.input_ids.shape[1]
+        else:
+            full_text = target
+            context_length = 0
+        
+        inputs = self.tokenizer(full_text, return_tensors="pt", add_special_tokens=True).to(self.device)
+        
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            logits = outputs.logits
+        
+        if context_length > 0:
+            target_logits = logits[0, context_length-1:-1]
+            target_labels = inputs.input_ids[0, context_length:]
+        else:
+            target_logits = logits[0, :-1]
+            target_labels = inputs.input_ids[0, 1:]
+        
+        if len(target_labels) > 0:
+            log_probs = torch.log_softmax(target_logits, dim=-1)
+            token_log_probs = log_probs[torch.arange(len(target_labels)), target_labels]
+            avg_log_prob = token_log_probs.mean().item()
+            ppl = math.exp(-avg_log_prob)
+        else:
+            ppl = float('inf')
+
+        # take log2 of ppl
+        ppl = math.log2(ppl)
+        
+        return ppl
+
+    def calculate_adaptive_thresholds(self, ppls: List[float], k: float = 0.2) -> dict:
+        """Calculate adaptive thresholds using different statistical methods"""
+        # Filter out infinite and NaN values
+        valid_ppls = [p for p in ppls if not math.isinf(p) and not math.isnan(p) and p > 0]
+        
+        if len(valid_ppls) < 3:
+            # Fallback to fixed threshold if not enough valid data
+            return {
+                'std': 0.5,
+                'robust_std': 0.5,
+                'iqr': 0.5,
+                'mad': 0.5
+            }
+        
+        valid_ppls = np.array(valid_ppls)
+        
+        # Method 1: Standard deviation based
+        mean_ppl = np.mean(valid_ppls)
+        std_ppl = np.std(valid_ppls)
+        threshold_std = mean_ppl + k * std_ppl
+        
+        # Method 2: Robust standard deviation (using median and MAD)
+        median_ppl = np.median(valid_ppls)
+        mad = np.median(np.abs(valid_ppls - median_ppl))
+        robust_std = mad * 1.4826  # Convert MAD to robust std estimate
+        threshold_robust_std = median_ppl + k * robust_std
+        
+        # Method 3: IQR based (Interquartile Range)
+        q25 = np.percentile(valid_ppls, 25)
+        q75 = np.percentile(valid_ppls, 75)
+        iqr = q75 - q25
+        threshold_iqr = q75 + k * iqr
+        
+        # Method 4: MAD based (Median Absolute Deviation)
+        threshold_mad = median_ppl + k * mad
+        
+        return {
+            'std': threshold_std,
+            'robust_std': threshold_robust_std,
+            'iqr': threshold_iqr,
+            'mad': threshold_mad
+        }
+
+    def find_ppl_spikes_adaptive(self, values: List[float], method: str = 'std', k: float = 0.2) -> tuple:
+        """Find PPL spikes using adaptive threshold based on statistical method"""
+        thresholds = self.calculate_adaptive_thresholds(values, k)
+        threshold = thresholds[method]
+        
+        spike_indices = []
+        
+        for i in range(1, len(values) - 1):
+            current = values[i]
+            left = values[i - 1]
+            right = values[i + 1]
+            
+            # Skip infinite or NaN values
+            if math.isinf(current) or math.isnan(current):
+                continue
+            if math.isinf(left) or math.isnan(left):
+                left = current
+            if math.isinf(right) or math.isnan(right):
+                right = current
+            
+            # Check if current PPL is significantly higher than both neighbors
+            left_diff = current - left
+            right_diff = current - right
+            
+            # Condition: Current PPL is higher than both neighbors with adaptive threshold
+            if (left_diff >= threshold or right_diff >= threshold) and (left_diff >= 0 and right_diff >= 0):
+                spike_indices.append(i)
+        
+        return spike_indices, threshold
+
+    def chunk_text_adaptive(self, text: str, method: str = 'std', k: float = 0.2) -> tuple:
+        """Perform PPL-based text chunking using adaptive spike detection"""
+        sentences = self.split_into_sentences(text)
+        ppls = self.calculate_sentence_ppl(sentences)
+        spike_indices, threshold = self.find_ppl_spikes_adaptive(ppls, method, k)
+        
+        chunks = []
+        # Split at spike points (after the spike line)
+        split_points = [0] + [idx + 1 for idx in spike_indices] + [len(sentences)]
+        
+        for i in range(len(split_points) - 1):
+            start = split_points[i]
+            end = split_points[i + 1]
+            chunk_sentences = sentences[start:end]
+            chunk_text = "\n".join(chunk_sentences)
+            chunks.append(chunk_text)
+        
+        return chunks, sentences, ppls, spike_indices
+
+
+
+
+class ProgramAnalysisSemanticChunking:
+    """
+    Module-aware adapter over split_code.py.
+
+    Behavior:
+    1) Walks the whole module instead of only the first top-level function/class.
+    2) Keeps the existing function-level PDG semantic splitter from split_code.py.
+    3) Does NOT merge top-level miscellaneous statements into one block.
+    4) Does NOT merge class-level miscellaneous statements into one block.
+    5) Preserves decorators for functions/classes/statements where possible.
+    """
+
+    def __init__(
+        self,
+        joern_home: Optional[str] = None,
+        work_root: Optional[Union[str, Path]] = None,
+        fallback_entropy: Optional[object] = None,
+    ):
+        self.fallback_entropy = fallback_entropy
+        self.work_root = Path(work_root or ".semantic_chunk_cache").expanduser().resolve()
+        self.work_root.mkdir(parents=True, exist_ok=True)
+        self.cache: Dict[str, tuple] = {}
+        self._pdg_cache: Dict[str, Path] = {}
+
+        self.joern_home = Path(joern_home).expanduser().resolve() if joern_home else None
+        self.module = semantic_splitter
+        self.impl = None
+
+        self._required_helpers = [
+            "parse_python_ast",
+            "function_span",
+            "build_stmt_infos_for_function",
+            "generate_pdg_with_joern",
+            "choose_candidate_graphs",
+            "merge_graphs",
+            "build_line_graph_from_merged_pdg",
+            "build_semantic_blocks",
+            "build_suite_semantic_blocks",
+            "build_module_semantic_blocks",
+        ]
+
+        if self.module is None:
+            logger.warning("Failed to import split_code.py; semantic chunking will use fallback mode.")
+            return
+
+        missing = [name for name in self._required_helpers if not hasattr(self.module, name)]
+        if missing:
+            logger.warning(
+                "split_code.py does not expose the expected helper functions "
+                f"{missing}; semantic chunking will use fallback mode."
+            )
+        else:
+            logger.debug("ProgramAnalysisSemanticChunking initialized from split_code.py helper functions.")
+
+    @staticmethod
+    def _is_docstring_expr(stmt: ast.AST) -> bool:
+        return (
+            isinstance(stmt, ast.Expr)
+            and isinstance(stmt.value, ast.Constant)
+            and isinstance(stmt.value.value, str)
+        )
+
+    @staticmethod
+    def _leading_indent(text: str) -> str:
+        for line in text.splitlines():
+            if line.strip():
+                m = re.match(r"^\s*", line)
+                return m.group(0) if m else ""
+        return ""
+
+    @staticmethod
+    def _reindent_block(text: str, indent: str) -> str:
+        if not text:
+            return text
+        out = []
+        for line in text.splitlines():
+            if line.strip():
+                out.append(f"{indent}{line}")
+            else:
+                out.append(line)
+        return "\n".join(out).rstrip("\n")
+
+    @staticmethod
+    def _node_text(source_text: str, source_lines: List[str], node: ast.AST) -> str:
+        try:
+            seg = ast.get_source_segment(source_text, node)
+            if seg is not None and seg.strip():
+                return seg.rstrip("\n")
+        except Exception:
+            pass
+
+        start = getattr(node, "lineno", None)
+        end = getattr(node, "end_lineno", None)
+        if start is None:
+            return ""
+        if end is None:
+            end = start
+        start = max(1, int(start))
+        end = min(max(start, int(end)), len(source_lines))
+        return "\n".join(source_lines[start - 1:end]).rstrip("\n")
+
+    @staticmethod
+    def _node_source_with_decorators(source_lines: List[str], node: ast.AST) -> str:
+        start = getattr(node, "lineno", None)
+        end = getattr(node, "end_lineno", None)
+
+        decorator_list = getattr(node, "decorator_list", None)
+        if decorator_list:
+            dec_lines = [
+                getattr(d, "lineno", None)
+                for d in decorator_list
+                if getattr(d, "lineno", None) is not None
+            ]
+            if dec_lines:
+                start = min(dec_lines)
+
+        if start is None:
+            return ""
+        if end is None:
+            end = start
+        start = max(1, int(start))
+        end = min(len(source_lines), int(end))
+        return "\n".join(source_lines[start - 1:end]).rstrip("\n")
+
+    @staticmethod
+    def _fallback_line_chunks(text: str) -> List[str]:
+        lines = text.splitlines()
+        if not lines:
+            return [text] if text else []
+
+        chunks: List[str] = []
+        cur: List[str] = []
+        for line in lines:
+            if line.strip():
+                cur.append(line)
+            else:
+                if cur:
+                    chunks.append("\n".join(cur).rstrip())
+                    cur = []
+        if cur:
+            chunks.append("\n".join(cur).rstrip())
+
+        return chunks if chunks else ([text] if text.strip() else [])
+
+    def _fallback_result(self, text: str) -> tuple:
+        chunks = self._fallback_line_chunks(text)
+        sentences = text.splitlines()
+        ppls = [float(len(c.splitlines())) for c in chunks]
+        spike_indices = [i for i in range(max(0, len(chunks) - 1))]
+        return chunks, sentences, ppls, spike_indices
+
+    def _source_key(self, source_text: str) -> str:
+        return hashlib.md5(source_text.encode("utf-8")).hexdigest()[:16]
+
+    def _ensure_pdg_dir(self, source_text: str, source_file_name: str = "snippet.py") -> Optional[Path]:
+        if self.module is None:
+            return None
+
+        key = self._source_key(source_text)
+        if key in self._pdg_cache:
+            return self._pdg_cache[key]
+
+        missing = [name for name in self._required_helpers if not hasattr(self.module, name)]
+        if missing:
+            return None
+
+        work_dir = self.work_root / f"semantic_{key}"
+        work_dir.mkdir(parents=True, exist_ok=True)
+
+        source_file = work_dir / source_file_name
+        source_file.write_text(source_text, encoding="utf-8")
+
+        generate_pdg_with_joern = getattr(self.module, "generate_pdg_with_joern")
+        pdg_dir = generate_pdg_with_joern(source_file, work_dir, self.joern_home)
+        pdg_dir = Path(pdg_dir)
+
+        self._pdg_cache[key] = pdg_dir
+        return pdg_dir
+
+    def _analyze_single_function(
+        self,
+        func_node: ast.AST,
+        source_text: str,
+        source_lines: List[str],
+    ) -> List[str]:
+        if self.module is None:
+            return [self._node_source_with_decorators(source_lines, func_node)]
+
+        missing = [name for name in self._required_helpers if not hasattr(self.module, name)]
+        if missing:
+            return [self._node_source_with_decorators(source_lines, func_node)]
+
+        try:
+            parse_python_ast = getattr(self.module, "parse_python_ast")
+            function_span = getattr(self.module, "function_span")
+            build_stmt_infos_for_function = getattr(self.module, "build_stmt_infos_for_function")
+            choose_candidate_graphs = getattr(self.module, "choose_candidate_graphs")
+            merge_graphs = getattr(self.module, "merge_graphs")
+            build_line_graph_from_merged_pdg = getattr(self.module, "build_line_graph_from_merged_pdg")
+            build_semantic_blocks = getattr(self.module, "build_semantic_blocks")
+            build_suite_semantic_blocks = getattr(self.module, "build_suite_semantic_blocks", None)
+
+            func_source = self._node_source_with_decorators(source_lines, func_node)
+            if not func_source.strip():
+                return []
+
+            normalized = textwrap.dedent(func_source).strip("\n") + "\n"
+            tree = parse_python_ast(normalized)
+
+            target = None
+            for node in getattr(tree, "body", []):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    target = node
+                    break
+            if target is None:
+                return [func_source.rstrip()]
+
+            pdg_dir = self._ensure_pdg_dir(normalized, "snippet.py")
+            if pdg_dir is None:
+                return [func_source.rstrip()]
+
+            func_start_line, func_end_line = function_span(target)
+            candidate_graphs = choose_candidate_graphs(pdg_dir, target.name, func_start_line, func_end_line)
+            if not candidate_graphs:
+                return [func_source.rstrip()]
+
+            merged_raw = merge_graphs(candidate_graphs)
+            normalized_lines = normalized.splitlines()
+
+            stmt_infos, stmt_by_ast_id, span_by_line = build_stmt_infos_for_function(
+                source_text=normalized,
+                source_lines=normalized_lines,
+                func_node=target,
+            )
+
+            line_graph = build_line_graph_from_merged_pdg(
+                merged_raw=merged_raw,
+                stmt_infos=stmt_infos,
+                span_by_line=span_by_line,
+                func_start_line=func_start_line,
+                func_end_line=func_end_line,
+            )
+
+            blocks = build_semantic_blocks(
+                func_node=target,
+                source_text=normalized,
+                source_lines=normalized_lines,
+                line_graph=line_graph,
+                stmt_by_ast_id=stmt_by_ast_id,
+            )
+
+            chunks = [blk.code.rstrip() for blk in blocks if blk.code and blk.code.strip()]
+
+            if len(chunks) <= 1 and build_suite_semantic_blocks is not None:
+                fallback_blocks = build_suite_semantic_blocks(
+                    [n for n in getattr(target, "body", []) if not self._is_docstring_expr(n)],
+                    normalized,
+                    normalized_lines,
+                    depth=1,
+                )
+                fallback_chunks = [b.code.rstrip() for b in fallback_blocks if getattr(b, "code", "").strip()]
+                if fallback_chunks:
+                    return fallback_chunks
+
+            if len(chunks) <= 1:
+                return self._fallback_line_chunks(func_source)
+
+            return chunks
+
+        except Exception as e:
+            logger.warning(f"Semantic split failed for {getattr(func_node, 'name', '<anonymous>')}, fallback to whole node: {e}")
+            return [self._node_source_with_decorators(source_lines, func_node)]
+
+    def _split_class_node(self, class_node: ast.ClassDef, source_text: str, source_lines: List[str]) -> List[str]:
+        chunks: List[str] = []
+        class_start = getattr(class_node, "lineno", None)
+        if class_start is None:
+            return []
+
+        decorator_list = getattr(class_node, "decorator_list", None)
+        if decorator_list:
+            dec_lines = [
+                getattr(d, "lineno", None)
+                for d in decorator_list
+                if getattr(d, "lineno", None) is not None
+            ]
+            if dec_lines:
+                class_start = min(dec_lines)
+
+        body_first_line = None
+        for stmt in getattr(class_node, "body", []):
+            ln = getattr(stmt, "lineno", None)
+            if ln is not None:
+                body_first_line = ln
+                break
+
+        header_end = getattr(class_node, "lineno", class_start)
+        if body_first_line is not None and body_first_line > class_start:
+            header_end = body_first_line - 1
+
+        header_text = "\n".join(source_lines[class_start - 1:header_end]).rstrip("\n")
+        if header_text.strip():
+            chunks.append(header_text)
+
+        build_suite_semantic_blocks = getattr(self.module, "build_suite_semantic_blocks", None) if self.module else None
+
+        for stmt in getattr(class_node, "body", []):
+            if self._is_docstring_expr(stmt):
+                continue
+
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                chunks.extend(self._analyze_single_function(stmt, source_text, source_lines))
+                continue
+
+            if isinstance(stmt, ast.ClassDef):
+                chunks.extend(self._split_class_node(stmt, source_text, source_lines))
+                continue
+
+            text = self._node_source_with_decorators(source_lines, stmt)
+            if text.strip():
+                chunks.append(text.rstrip())
+
+        if len(chunks) <= 1 and build_suite_semantic_blocks is not None:
+            try:
+                body = [n for n in getattr(class_node, "body", []) if not self._is_docstring_expr(n)]
+                blocks = build_suite_semantic_blocks(body, source_text, source_lines, depth=1)
+                alt = [b.code.rstrip() for b in blocks if getattr(b, "code", "").strip()]
+                if alt:
+                    chunks = [header_text] + alt if header_text.strip() else alt
+            except Exception:
+                pass
+
+        return [c for c in chunks if c.strip()]
+
+    def _split_module(self, tree: ast.AST, source_text: str, source_lines: List[str]) -> List[str]:
+        chunks: List[str] = []
+
+        for node in getattr(tree, "body", []):
+            if self._is_docstring_expr(node):
+                continue
+
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                chunks.extend(self._analyze_single_function(node, source_text, source_lines))
+                continue
+
+            if isinstance(node, ast.ClassDef):
+                chunks.extend(self._split_class_node(node, source_text, source_lines))
+                continue
+
+            text = self._node_source_with_decorators(source_lines, node)
+            if text.strip():
+                chunks.append(text.rstrip())
+
+        return [c for c in chunks if c.strip()]
+
+    def chunk_text_adaptive(
+        self,
+        text: str,
+        method: str = "std",
+        k: float = 0.2,
+        language: str = "python",
+    ) -> tuple:
+        if language.lower() != "python":
+            return self._fallback_result(text)
+
+        if self.module is None:
+            return self._fallback_result(text)
+
+        missing = [name for name in self._required_helpers if not hasattr(self.module, name)]
+        if missing:
+            return self._fallback_result(text)
+
+        try:
+            source_text = textwrap.dedent(text).strip("\n") + "\n"
+            if not source_text.strip():
+                return [], [], [], []
+
+            parse_python_ast = getattr(self.module, "parse_python_ast")
+            tree = parse_python_ast(source_text)
+            source_lines = source_text.splitlines()
+
+            chunks = self._split_module(tree, source_text, source_lines)
+
+            if not chunks:
+                return self._fallback_result(text)
+
+            original_indent = self._leading_indent(text)
+            chunks = [self._reindent_block(chunk.rstrip("\n"), original_indent) for chunk in chunks if chunk.strip()]
+
+            sentences = text.splitlines()
+            ppls = [float(len(c.splitlines())) for c in chunks]
+            spike_indices = [i for i in range(max(0, len(chunks) - 1))]
+            return chunks, sentences, ppls, spike_indices
+
+        except Exception as e:
+            logger.warning(f"ProgramAnalysisSemanticChunking failed, falling back to line chunks: {e}")
+            return self._fallback_result(text)
+
 
 class CodeCompressor:
+
     def __init__(
         self,
         model_name: str = "Qwen/Qwen2.5-Coder-7B-Instruct-GPTQ-Int4",
@@ -36,6 +637,14 @@ class CodeCompressor:
         self.model_config = model_config
         self.load_model(model_name, device_map, model_config)
         
+        # Initialize Entropy chunking with smaller model
+        logger.debug("Initializing Entropy chunking...")
+        self.entropy_chunking = EntropyChunking()
+        self.semantic_chunker = ProgramAnalysisSemanticChunking(
+            joern_home=getattr(semantic_splitter, "JOERN_HOME", None) if semantic_splitter is not None else None,
+            fallback_entropy=self.entropy_chunking,
+        )
+
         # Add caching system for model outputs and token information
         self.cache = {
             "token_length": {},      # Cache for token length by text
@@ -64,19 +673,17 @@ class CodeCompressor:
             model_config: Additional configuration for the model
         """
         logger.debug(f"Loading model {model_name} on {device_map}")
-        torch_dtype = torch.float16 if "torch_dtype" not in model_config else model_config["torch_dtype"]
-        model_kwargs = {"device_map": device_map, "torch_dtype": torch_dtype}
+        torch_dtype = torch.bfloat16 if "torch_dtype" not in model_config else model_config["torch_dtype"]
+        # model_kwargs = {"device_map": device_map, "torch_dtype": torch_dtype, "trust_remote_code": True}
+        model_kwargs = {"device_map": device_map, "torch_dtype": torch_dtype, "trust_remote_code": True}
         
         for k, v in model_config.items():
-            if k != "torch_dtype":
-                model_kwargs[k] = v
+            model_kwargs[k] = v
         
         self.model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "left"
-        
-        self.tokenizer_is_gpt = "gpt" in model_name.lower()
         logger.debug("Model and tokenizer loaded successfully")
         
     def _manage_cache_size(self, cache_type):
@@ -214,21 +821,9 @@ class CodeCompressor:
         # Apply condition filtering if required
         if condition_mode == "prefix":
             loss = loss[condition_pos_id:]
-        
-        # Process based on granularity
-        if granularity == "token":
-            result_loss = loss
-        else:
-            result_loss = loss.mean()
             
-        # Split text into lines for line-level granularity
-        if granularity == "line" and text:
-            segments = text.split("\n")
-            segments = [seg for seg in segments if seg.strip()]
-            lines_info = self.__get_lines_info(segments, input_ids[0], loss)
-        else:
-            segments = [text] if text else []
-            lines_info = []
+        segments = [text] if text else []
+        lines_info = []
             
         # Calculate mean perplexity
         mean_loss = loss.mean() if len(loss) > 0 else torch.tensor(0.0)
@@ -377,677 +972,7 @@ class CodeCompressor:
         self._manage_cache_size("conditional_ppl")
         
         return ppl_value
-    
-    def get_estimate_threshold_base_distribution(
-        self, ppl_values, ratio: float, condition_flag: bool = False
-    ):
-        """
-        Estimate threshold value for compression based on perplexity distribution.
-        
-        Args:
-            ppl_values: Perplexity values for tokens or lines
-            ratio: Compression ratio (0.0-1.0)
-            condition_flag: Whether values are conditional (affecting sorting direction)
-            
-        Returns:
-            Threshold value for filtering
-        """
-        if ratio >= 1.0:
-            return float("-inf")
-            
-        if isinstance(ppl_values, torch.Tensor):
-            # Filter out extreme values that might skew the threshold
-            valid_values = ppl_values[ppl_values != float('inf')]
-            valid_values = valid_values[valid_values != -float('inf')]
-            valid_values = valid_values[~torch.isnan(valid_values)]
-            
-            if len(valid_values) == 0:
-                return 0.0
-                
-            # Calculate the target position for the percentile
-            target_token = max(0, min(len(valid_values) - 1, int(len(valid_values) * ratio) - 1))
-            
-            # Sort values based on condition_flag and get threshold
-            sort_values = valid_values.sort(descending=not condition_flag).values
-            if target_token < len(sort_values):
-                return sort_values[target_token].item()
-            return 0.0
-        else:
-            # Handle non-tensor inputs (lists, numpy arrays)
-            valid_values = [v for v in ppl_values if v != float('inf') and v != -float('inf') and not math.isnan(v)]
-            
-            if not valid_values:
-                return 0.0
-                
-            # Calculate the target position for the percentile
-            target_idx = max(0, min(len(valid_values) - 1, int(len(valid_values) * ratio) - 1))
-            
-            # Sort values and get threshold
-            sorted_values = sorted(valid_values, reverse=not condition_flag)
-            if target_idx < len(sorted_values):
-                return sorted_values[target_idx]
-            return 0.0
-    
-    def get_dynamic_compression_ratio(
-        self,
-        context: list,
-        target_token: float,
-        iterative_size: int,
-        dynamic_ratio: list,
-        start: int,
-    ):
-        """
-        Calculate dynamic compression ratios for iterative compression.
-        
-        Args:
-            context: List of context strings
-            target_token: Target number of tokens
-            iterative_size: Size of each iteration
-            dynamic_ratio: List of dynamic ratio adjustments
-            start: Start position for processing
-            
-        Returns:
-            List of ratios for each iteration chunk
-        """
-        def get_ratio(base: float, delta: float):
-            return max(min(1, base + delta), 0)
-
-        context_length = [self.get_token_length(ii, False) + 2 for ii in context]
-        if start:
-            context_length = context_length[1:]
-            
-        tau = target_token / (sum(context_length) + 1)
-        res, idx, last, last_target = [], 0, 1, []
-        
-        while idx < len(context_length):
-            if last + context_length[idx] >= iterative_size:
-                last_target.append(
-                    (iterative_size - last, get_ratio(tau, dynamic_ratio[idx]))
-                )
-                res.append(last_target)
-                last = last + context_length[idx] - iterative_size
-                
-                if last > iterative_size:
-                    k = last // iterative_size
-                    res.extend(
-                        [[(iterative_size, get_ratio(tau, dynamic_ratio[idx]))]] * k
-                    )
-                    last -= k * iterative_size
-
-                last_target = (
-                    [(last, get_ratio(tau, dynamic_ratio[idx]))] if last else []
-                )
-            else:
-                last += context_length[idx]
-                last_target.append(
-                    (context_length[idx], get_ratio(tau, dynamic_ratio[idx]))
-                )
-            idx += 1
-            
-        if last_target:
-            res.append(last_target)
-            
-        return res
-    
-    def iterative_compress_prompt(
-        self,
-        context: List[str],
-        target_token: float,
-        iterative_size: int = 200,
-        keep_lines: bool = True,
-        start: int = 0,
-        dynamic_ratio: list = None,
-        condition_compare: bool = False,
-    ):
-        """
-        Iteratively compress text using a sliding window approach with KV caching.
-        
-        Args:
-            context: List of text contexts to compress
-            target_token: Target number of tokens after compression
-            iterative_size: Size of each iteration window
-            keep_lines: Whether to keep line structure
-            start: Start position for processing
-            dynamic_ratio: List of dynamic compression ratios
-            condition_compare: Whether to use conditional comparison
-            
-        Returns:
-            Compressed input IDs and attention mask
-        """
-        # Calculate dynamic compression ratios for each iteration
-        iterative_ratios = self.get_dynamic_compression_ratio(
-            context, target_token, iterative_size, dynamic_ratio, start
-        )
-        
-        # Join contexts and tokenize
-        context_joined = "\n\n".join(context)
-        tokenized_text = self.tokenizer(
-            context_joined, return_tensors="pt", add_special_tokens=False
-        )
-        input_ids = tokenized_text["input_ids"].to(self.model.device)
-        attention_mask = tokenized_text["attention_mask"].to(self.model.device)
-
-        # Initialize working variables
-        compressed_input_ids, compressed_attention_mask = input_ids, attention_mask
-        end = min(iterative_size + start, compressed_input_ids.shape[1])
-        threshold, keep_flag = None, None
-        
-        if keep_lines:
-            # Build a keep flag for important line tokens (e.g., indentation patterns)
-            input_ids_numpy = input_ids.cpu().detach().numpy()[0]
-            N = len(input_ids_numpy)
-            # Identify line break patterns to preserve
-            newline_ids = set(self.tokenizer.encode("\n", add_special_tokens=False))
-            keep_flag = torch.zeros(N, dtype=torch.bool).to(self.model.device)
-            
-            # Mark tokens that represent indentation to be preserved
-            for i in range(1, N):
-                if input_ids_numpy[i-1] in newline_ids:
-                    # Check if this token is whitespace (indentation)
-                    token = self.tokenizer.decode([input_ids_numpy[i]])
-                    if token.isspace():
-                        keep_flag[i] = True
-        
-        # Initialize processing state
-        past_key_values, past_loss, ready_end = None, None, 0
-        pop_compressed_input_ids = None
-        idx = 0
-        
-        # Process text in chunks
-        while end <= compressed_input_ids.shape[1]:
-            # Handle KV-cache window sliding for long texts
-            if end > self.max_position_embeddings and past_key_values is not None:
-                # KV-Cache Compression
-                e, s = end - self.max_position_embeddings, min(
-                    self.cache_bos_num + start, self.max_position_embeddings
-                )
-                if pop_compressed_input_ids is None:
-                    pop_compressed_input_ids = compressed_input_ids[:, :e]
-                else:
-                    pop_compressed_input_ids = torch.cat(
-                        [pop_compressed_input_ids, compressed_input_ids[:, :e]], dim=-1
-                    )
-                compressed_input_ids = compressed_input_ids[:, e:]
-                compressed_attention_mask = compressed_attention_mask[:, e:]
-                
-                # Update KV cache - keep beginning tokens and skip processed tokens
-                past_key_values = [
-                    [
-                        torch.cat([k[..., :s, :], k[..., s + e :, :]], dim=-2),
-                        torch.cat([v[..., :s, :], v[..., s + e :, :]], dim=-2),
-                    ]
-                    for k, v in past_key_values
-                ]
-                
-                if keep_flag is not None:
-                    keep_flag = keep_flag[e:]
-                    
-                end, ready_end = end - e, ready_end - e
-
-            # Calculate perplexity for current window
-            result = self.get_ppl(
-                "",
-                "token",
-                compressed_input_ids,
-                compressed_attention_mask,
-                past_key_values=past_key_values,
-                return_kv=True,
-                end=end if idx else None,
-            )
-            
-            loss, past_key_values = result["loss"], result["past_key_values"]
-            
-            if loss.shape[0] == 0:
-                break
-                
-            # Merge with previous loss calculations
-            if past_loss is not None:
-                if end - 1 > len(past_loss):
-                    past_loss = torch.cat(
-                        [past_loss, torch.zeros_like(loss)[: end - 1 - len(past_loss)]]
-                    )
-                past_loss[ready_end : end - 1] = loss
-                loss = past_loss
-            else:
-                past_loss = loss
-                
-            # Slide the KV cache window
-            if idx:
-                past_key_values = [
-                    [k[:, :, : end - iterative_size], v[:, :, : end - iterative_size]]
-                    for k, v in past_key_values
-                ]
-            else:
-                past_key_values = None
-
-            # Apply compression for each chunk in the current window
-            for delta_end, ratio in iterative_ratios[idx]:
-                loss = past_loss
-                # Calculate threshold for token filtering
-                threshold = self.get_estimate_threshold_base_distribution(
-                    loss, ratio, False
-                )
-
-                # Filter tokens using the calculated threshold
-                compressed_input_ids, compressed_attention_mask, keep_flag, end, past_loss = self.get_compressed_input(
-                    loss,
-                    compressed_input_ids,
-                    compressed_attention_mask,
-                    end - iterative_size + delta_end,
-                    iterative_size=delta_end,
-                    threshold=threshold,
-                    keep_flag=keep_flag,
-                    start=start,
-                )
-                
-                end += iterative_size
-                
-            ready_end = end - iterative_size if not (start and idx == 0) else 0
-            idx += 1
-            
-        # Concatenate saved tokens with final compressed tokens
-        if pop_compressed_input_ids is not None:
-            compressed_input_ids = torch.cat(
-                [pop_compressed_input_ids, compressed_input_ids], dim=-1
-            )
-            
-        return compressed_input_ids[:, start:], compressed_attention_mask[:, start:]
-    
-    def iterative_compress_prompt_line(
-        self,
-        context: List[str],
-        target_token: float,
-        dynamic_ratio: list = None,
-    ):
-        """
-        Compress text by evaluating and filtering entire lines based on importance.
-        This is a line-level alternative to the token-level iterative_compress_prompt.
-        
-        Args:
-            context: List of text contexts to compress
-            target_token: Target number of tokens after compression
-            dynamic_ratio: List of dynamic compression ratios for each context
-            
-        Returns:
-            Compressed input IDs and attention mask
-        """
-        # Join contexts
-        context_joined = "\n\n".join(context)
-        
-        # Split text into lines
-        lines = context_joined.split("\n")
-        
-        # Get perplexity for the entire text at line level
-        ppl_result = self.get_ppl(context_joined, granularity="line")
-        lines_info = ppl_result["lines_info"]
-        
-        # Calculate token count for each line
-        line_tokens = [(i, info["tokens"], info["importance"]) 
-                      for i, info in enumerate(lines_info)]
-        
-        # Apply dynamic ratio adjustments if provided
-        if dynamic_ratio and len(dynamic_ratio) > 0:
-            # Create dynamic ratios for each line based on context dynamic ratios
-            # We'll infer which context each line belongs to
-            line_contexts = []
-            context_idx = 0
-            line_count = 0
-            
-            # Map each line to its corresponding context
-            for i, info in enumerate(lines_info):
-                line_contexts.append(min(context_idx, len(dynamic_ratio) - 1))
-                line_count += 1
-                
-                # Check if we've reached the end of a context
-                if line_count >= lines.count("\n") + 1 and context_idx < len(context) - 1:
-                    context_idx += 1
-                    line_count = 0
-            
-            # Apply dynamic ratio adjustments to line importance scores
-            for i in range(len(line_tokens)):
-                if i < len(line_contexts):
-                    context_idx = line_contexts[i]
-                    if context_idx < len(dynamic_ratio):
-                        # Adjust importance using dynamic ratio
-                        # Lower importance score means higher priority (will be kept)
-                        adjustment = dynamic_ratio[context_idx]
-                        line_tokens[i] = (
-                            line_tokens[i][0],
-                            line_tokens[i][1],
-                            line_tokens[i][2] - adjustment  # Lower importance means keep
-                        )
-        
-        # Sort lines by importance (lower score is more important)
-        sorted_lines = sorted(line_tokens, key=lambda x: x[2])
-        
-        # Select lines to keep within token budget
-        tokens_so_far = 0
-        lines_to_keep = set()
-        
-        for line_idx, line_tokens, _ in sorted_lines:
-            if tokens_so_far + line_tokens <= target_token:
-                lines_to_keep.add(line_idx)
-                tokens_so_far += line_tokens
-            else:
-                # Stop if we've reached our target
-                break
-        
-        # Create compressed text with only the selected lines
-        compressed_lines = [lines_info[i]["line"] for i in sorted(lines_to_keep)]
-        compressed_text = "\n".join(compressed_lines)
-        
-        # Tokenize the compressed text
-        tokenized_text = self.tokenizer(
-            compressed_text, return_tensors="pt", add_special_tokens=False
-        )
-        compressed_input_ids = tokenized_text["input_ids"].to(self.model.device)
-        compressed_attention_mask = tokenized_text["attention_mask"].to(self.model.device)
-        
-        return compressed_input_ids, compressed_attention_mask
-    
-    def get_compressed_input(
-        self,
-        loss,
-        input_ids,
-        attention_mask,
-        end=200,
-        iterative_size=200,
-        threshold=0.5,
-        keep_flag=None,
-        start: int = 0,
-    ):
-        """
-        Filter input tokens based on loss values and thresholds.
-        
-        Args:
-            loss: Loss values for each token
-            input_ids: Input token IDs
-            attention_mask: Attention mask
-            end: End position for processing
-            iterative_size: Size of each iteration
-            threshold: Threshold value for filtering
-            keep_flag: Flags for tokens to always keep
-            start: Start position for processing
-            
-        Returns:
-            Compressed inputs and updated state
-        """
-        # Determine which tokens to keep based on loss values and threshold
-        need_idx = torch.concat([loss > threshold, loss[:1] > 0])
-        
-        # Ensure we keep tokens at positions outside our current window
-        need_idx[end:] = 1
-        need_idx[: end - iterative_size] = 1
-        
-        # Get filtered loss
-        loss = loss[need_idx[:-1]]
-
-        # Ensure need_idx matches input_ids length
-        if need_idx.shape[0] < input_ids.shape[1]:
-            need_idx = torch.cat(
-                [
-                    need_idx,
-                    torch.ones(
-                        input_ids.shape[1] - need_idx.shape[0], dtype=torch.bool
-                    ).to(need_idx.device),
-                ]
-            )
-        elif need_idx.shape[0] > input_ids.shape[1]:
-            need_idx = need_idx[: input_ids.shape[1]]
-
-        # Enforce keeping tokens marked in keep_flag
-        if keep_flag is not None:
-            need_idx[keep_flag] = 1
-            
-            # Optionally apply line break preservation logic
-            # Find tokens representing newlines and always keep one of consecutive newlines
-            tokens = input_ids[0]
-            newline_ids = set(self.tokenizer.encode("\n", add_special_tokens=False))
-            last_kept_newline = False
-            
-            for ii in range(max(0, end - iterative_size), end):
-                if need_idx[ii] == 0:
-                    continue
-                
-                token_id = tokens[ii].item()
-                
-                # Handle newline logic - avoid consecutive newlines unless marked important
-                if token_id in newline_ids:
-                    if last_kept_newline and keep_flag[ii].item() == 0:
-                        need_idx[ii] = 0
-                    else:
-                        last_kept_newline = True
-                else:
-                    last_kept_newline = False
-
-        # Apply the filtering to get compressed tokens
-        compressed_input_ids = input_ids[attention_mask == 1][need_idx].unsqueeze(0)
-        compressed_attention_mask = attention_mask[attention_mask == 1][need_idx].unsqueeze(0)
-
-        # Update the end position based on how many tokens we removed
-        end -= (need_idx[:end] == 0).sum()
-        
-        return compressed_input_ids, compressed_attention_mask, keep_flag, end, loss
-    
-    def compress_code(
-        self,
-        code: str,
-        query: str = "",
-        instruction: str = "",
-        rate: float = 0.5,
-        target_token: int = -1,
-        use_line_level_filter: bool = True,
-        use_iterative_compression: bool = True,
-        iterative_size: int = 200,
-        dynamic_compression_ratio: float = 0.2,
-    ):
-        """
-        Compress code by removing less important lines based on query relevance.
-        
-        Args:
-            code: The code to compress
-            query: Query to prioritize relevant lines
-            instruction: Additional instruction to guide compression
-            rate: Compression rate (0.0-1.0), where 1.0 means no compression
-            target_token: Target number of tokens (alternative to rate)
-            use_line_level_filter: Whether to use line-level filtering
-            use_iterative_compression: Whether to use token-level iterative compression
-            iterative_size: Size of each iteration for token-level compression
-            dynamic_compression_ratio: Ratio for dynamic compression (0.0-1.0)
-            
-        Returns:
-            Compressed code and statistics
-        """
-        logger.debug(f"Starting code compression with rate={rate}, target_token={target_token}")
-        start_time = time.time()
-        
-        # Calculate total tokens in the code
-        total_tokens = self.get_token_length(code)
-        logger.debug(f"Total tokens in code: {total_tokens}")
-        
-        # Determine target tokens
-        if target_token <= 0:
-            target_token = int(total_tokens * rate)
-        logger.debug(f"Target tokens: {target_token}")
-        
-        if rate >= 1.0 or target_token >= total_tokens:
-            # No compression needed
-            return {
-                "original_code": code,
-                "compressed_code": code,
-                "output": code,
-                "original_tokens": total_tokens,
-                "compressed_tokens": total_tokens,
-                "final_compressed_tokens": total_tokens,
-                "compression_ratio": 1.0,
-                "kept_lines": list(range(len(code.split("\n")))),
-            }
-        
-        # For very small code snippets, skip iterative compression
-        if total_tokens < 100:
-            use_iterative_compression = False
-        
-        if use_line_level_filter:
-            # Split code into lines for line-level filtering
-            lines = code.split("\n")
-            non_empty_lines = [line for line in lines if line.strip()]
-            logger.debug(f"Split code into {len(non_empty_lines)} non-empty lines")
-            
-            # Get perplexity for entire code
-            ppl_result = self.get_ppl(code, granularity="line")
-            lines_info = ppl_result["lines_info"]
-            
-            # For query is provided, rank lines by relevance
-            if query:
-                logger.debug("Ranking lines by relevance to query")
-                # Get conditional perplexity for each line
-                line_importances = []
-                for i, line_info in tqdm(enumerate(lines_info), total=len(lines_info), desc="Calculating line importance"):
-                    # First calculate the perplexity of the query without the line
-                    query_ppl_without_context = self.get_ppl(query, granularity="line")["ppl"]
-                    
-                    # Then calculate the perplexity of the query with the line as context
-                    query_ppl_with_context = self.get_ppl(
-                        line_info["line"] + "\n\n" + query,
-                        granularity="line",
-                        condition_mode="prefix",
-                        condition_pos_id=self.get_token_length(line_info["line"] + "\n\n", add_special_tokens=True)
-                    )["ppl"]
-                    
-                    # Calculate the perplexity change (lower value means context is more helpful)
-                    ppl_change = query_ppl_without_context - query_ppl_with_context
-                    
-                    # Add length adjustment similar to before
-                    line_importances.append((i, -ppl_change - line_info["tokens"] * 2 / 250 * 0))
-                
-                # Sort by importance (higher perplexity reduction = more relevant to query)
-                sorted_lines = sorted(line_importances, key=lambda x: x[1])
-            else:
-                # Sort lines by importance (lower loss = more important)
-                line_importances = [(i, info["importance"]) for i, info in enumerate(lines_info)]
-                sorted_lines = sorted(line_importances, key=lambda x: x[1])
-            
-            # Apply dynamic compression ratio if specified
-            if dynamic_compression_ratio > 0:
-                N = len(sorted_lines)
-                # This creates a gradient of compression rates from higher to lower importance
-                dynamic_ratios = [
-                    i * (dynamic_compression_ratio / (N - 1)) if N > 1 else 0
-                    for i in range(-(N - 1), N, 2)
-                ]
-                
-                # Assign dynamic ratios to lines based on their importance rank
-                sorted_indices = [idx for idx, _ in sorted_lines]
-                dynamic_ratio_map = {idx: ratio for idx, ratio in zip(sorted_indices, dynamic_ratios)}
-            else:
-                dynamic_ratio_map = {i: 0 for i in range(len(lines_info))}
-            
-            # Determine which lines to keep based on token budget
-            tokens_so_far = 0
-            lines_to_keep = set()
-            
-            # First pass - keep most important lines within budget
-            for line_idx, _ in sorted_lines:
-                if line_idx >= len(lines_info):
-                    continue
-                    
-                line_info = lines_info[line_idx]
-                line_tokens = line_info["tokens"]
-                
-                if tokens_so_far + line_tokens <= target_token:
-                    lines_to_keep.add(line_idx)
-                    tokens_so_far += line_tokens
-                else:
-                    # Stop if we've reached our target
-                    break
-            
-            logger.debug(f"Selected {len(lines_to_keep)} lines to keep out of {len(lines_info)}")
-            
-            # Construct code with only the selected lines
-            preserved_code = "\n".join([lines_info[i]["line"] for i in sorted(lines_to_keep)])
-            
-            # If we need iterative token-level compression
-            if use_iterative_compression:
-                logger.debug("Applying iterative line-level compression")
-                
-                # Create dynamic ratios for iterative compression
-                dynamic_ratios = [dynamic_ratio_map.get(i, 0.0) for i in sorted(lines_to_keep)]
-                
-                # Convert to list for iterative compression
-                context = [preserved_code]
-                
-                # Apply line-level compression instead of token-level compression
-                compressed_ids, compressed_mask = self.iterative_compress_prompt_line(
-                    context,
-                    target_token=target_token,
-                    dynamic_ratio=dynamic_ratios,
-                )
-                
-                # Convert back to text
-                compressed_code = self.tokenizer.decode(compressed_ids[0])
-            else:
-                compressed_code = preserved_code
-        else:
-            # Without line-level filter, apply iterative compression directly
-            if use_iterative_compression:
-                logger.debug("Applying iterative line-level compression without line filtering")
-                
-                # Apply line-level compression to the entire code
-                compressed_ids, _ = self.iterative_compress_prompt_line(
-                    [code],
-                    target_token=target_token,
-                    dynamic_ratio=[0.0],  # No dynamic ratio adjustment for single context
-                )
-                
-                # Convert back to text
-                compressed_code = self.tokenizer.decode(compressed_ids[0])
-            else:
-                # Simple truncation
-                logger.debug("No compression methods selected, using simple truncation")
-                encoded = self.tokenizer.encode(code, add_special_tokens=False)
-                truncated = encoded[:target_token]
-                compressed_code = self.tokenizer.decode(truncated)
-        
-        # Construct final output with instruction and query
-        output = ""
-        if instruction:
-            output += f"{instruction}\n\n"
-        output += compressed_code
-        if query:
-            output += f"\n\n{query}"
-        
-        # Calculate compression statistics
-        compressed_tokens = self.get_token_length(compressed_code)
-        final_compressed_tokens = self.get_token_length(output)
-        compression_ratio = compressed_tokens / total_tokens if total_tokens > 0 else 1.0
-        
-        end_time = time.time()
-        logger.debug(f"Code compression completed in {end_time - start_time:.2f} seconds")
-        logger.debug(f"Compression ratio: {compression_ratio:.2f}")
-        
-        # For line-level filtering, include which lines were kept
-        if use_line_level_filter:
-            kept_lines = sorted(lines_to_keep)
-        else:
-            # Approximate which lines were kept based on content
-            original_lines = code.split("\n")
-            compressed_lines = compressed_code.split("\n")
-            kept_lines = []
-            for i, line in enumerate(original_lines):
-                if line in compressed_lines:
-                    kept_lines.append(i)
-        
-        return {
-            "original_code": code,
-            "compressed_code": compressed_code,
-            "output": output,
-            "original_tokens": total_tokens,
-            "compressed_tokens": compressed_tokens,
-            "final_compressed_tokens": final_compressed_tokens,
-            "compression_ratio": compression_ratio,
-            "kept_lines": kept_lines,
-        }
-    
+       
     def control_context_budget(
         self,
         context_list: List[str],
@@ -1185,6 +1110,11 @@ class CodeCompressor:
         dynamic_compression_ratio: float = 0.2,
         context_budget: str = "+100",
         rank_only: bool = False,
+        fine_ratio: float = None,
+        fine_grained_importance_method: str = "conditional_ppl",
+        min_lines_for_fine_grained: int = 5,
+        importance_beta: float = 0.5,
+        use_knapsack: bool = True,
     ):
         """
         Compress a code file by first splitting it into function-based chunks and then compressing.
@@ -1194,7 +1124,7 @@ class CodeCompressor:
             code: The code to compress
             query: Query to prioritize relevant functions
             instruction: Additional instruction to guide compression
-            rate: Compression rate (0.0-1.0)
+            rate: Compression rate for coarse-grained (function level) compression (0.0-1.0)
             target_token: Target number of tokens (alternative to rate)
             language: Programming language of the code
             use_iterative_compression: Whether to use iterative compression
@@ -1202,9 +1132,28 @@ class CodeCompressor:
             dynamic_compression_ratio: Ratio for dynamic compression
             context_budget: String expression to modify token budget
             rank_only: If True, just rank and select contexts without fine-grained compression
+            fine_ratio: Ratio for fine-grained line selection (0.0-1.0). If None, uses `rate`.
+            fine_grained_importance_method: Method for scoring line importance ('contrastive_perplexity' or 'conditional_ppl'). Defaults to 'conditional_ppl'.
+            min_lines_for_fine_grained: Minimum number of lines a function must have to undergo fine-grained compression (otherwise kept fully).
+            importance_beta: Controls how much function importance affects its individual compression rate during fine-grained compression.
+            use_knapsack: Whether to use knapsack algorithm for block selection (True) or greedy line-by-line approach (False).
             
         Returns:
-            Compressed code and statistics
+            Compressed code and statistics with the following structure:
+            {
+                "original_code": Original uncompressed code,
+                "compressed_code": Compressed code,
+                "compressed_prompt": Complete compressed prompt with instruction and query,
+                "original_tokens": Number of tokens in original code,
+                "compressed_tokens": Number of tokens in compressed code,
+                "final_compressed_tokens": Number of tokens in final compressed prompt,
+                "compression_ratio": Ratio of compressed to original tokens,
+                "function_compressions": Details about compression for each function,
+                "selected_functions": Indices of selected functions,
+                "demonstrations_sort": Ranking of functions by importance,
+                "compressed_chunks": List of compressed code chunks
+                "fine_grained_method_used": The method used for fine-grained importance scoring.
+            }
         """
         logger.debug(f"Starting code file compression with rate={rate}, target_token={target_token}, language={language}")
         start_time = time.time()
@@ -1218,11 +1167,17 @@ class CodeCompressor:
         logger.debug("Calculating total tokens")
         total_tokens = sum(self.get_token_length(chunk) for chunk in code_chunks)
         logger.debug(f"Total tokens: {total_tokens}")
-        
-        # If target token is not provided, use rate
+
+        # Determine target_token based on rate if not specified
+        original_target_token = target_token # Store original value if provided
         if target_token <= 0:
-            target_token = int(total_tokens * rate)
-        logger.debug(f"Target tokens: {target_token}")
+            if rate <= 0:
+                 # Default target if both rate and target_token are invalid
+                target_token = int(total_tokens * 0.5)
+                logger.warning(f"Rate and target_token invalid, defaulting target_token to {target_token}")
+            else:
+                target_token = int(total_tokens * rate)
+        logger.debug(f"Coarse Target tokens: {target_token}")
         
         # Use context budget control to select important functions
         logger.debug("Selecting important functions using context budget control")
@@ -1237,43 +1192,77 @@ class CodeCompressor:
         )
         
         # If rank_only is True, just use the selected contexts without further compression
-        if rank_only:
-            logger.debug("Using rank-only mode: selecting top functions without fine-grained compression")
-            compressed_chunks = []
-            compressed_tokens = 0
-            function_compressions = {}
-            
-            # Just keep the selected contexts as is
-            for i, chunk in enumerate(code_chunks):
-                if i in selected_indices:
-                    compressed_chunks.append(chunk)
-                    chunk_tokens = self.get_token_length(chunk)
-                    compressed_tokens += chunk_tokens
-                    
-                    # Store compression info - no actual compression in this mode
-                    function_compressions[i] = {
-                        "original_tokens": chunk_tokens,
-                        "compressed_tokens": chunk_tokens,
-                        "compression_ratio": 1.0,
-                    }
+        logger.debug("Using rank-only mode: selecting top functions without fine-grained compression")
+        compressed_chunks = []
+        compressed_tokens = 0
+        function_compressions = {}
+        
+        # Just keep the selected contexts as is
+        for i, chunk in enumerate(code_chunks):
+            if i in selected_indices:
+                compressed_chunks.append(chunk)
+                chunk_tokens = self.get_token_length(chunk)
+                compressed_tokens += chunk_tokens
+                
+                # Store compression info - no actual compression in this mode
+                function_compressions[i] = {
+                    "original_tokens": chunk_tokens,
+                    "compressed_tokens": chunk_tokens,
+                    "compression_ratio": 1.0,
+                }
+            else:
+                # Skip this function completely
+                comment_marker = "#" if language.lower() in ["python", "typescript", "rust"] else "//"
+                omission_text = f"{comment_marker} ... "
+                compressed_chunks.append(omission_text)
+                compressed_tokens += self.get_token_length(omission_text)
+        
+        # Combine compressed chunks
+        compressed_code = "\n\n".join(compressed_chunks)
+
+        # --- Post-join cleanup for consecutive omission markers ---
+        logger.debug("Cleaning up consecutive omission markers after joining...")
+        lines = compressed_code.split("\n")
+        cleaned_lines = []
+        last_non_empty_line_was_omission = False
+        comment_marker = "#" if language.lower() in ["python", "typescript", "rust"] else "//"
+        omission_marker_content = f"{comment_marker} ...".strip() # Content to check against
+
+        for line in lines:
+            stripped_line = line.strip()
+            if not stripped_line:
+                # Keep empty lines
+                cleaned_lines.append(line)
+                # Don't reset the flag here, wait for a non-empty line
+            elif stripped_line == omission_marker_content:
+                if last_non_empty_line_was_omission:
+                    # Skip this consecutive omission marker line
+                    logger.debug(f"Skipping line: '{line}' (consecutive omission)")
+                    continue
                 else:
-                    # Skip this function completely
-                    comment_marker = "#" if language.lower() in ["python", "typescript", "rust"] else "//"
-                    omission_text = f"{comment_marker} ... "
-                    compressed_chunks.append(omission_text)
-                    compressed_tokens += self.get_token_length(omission_text)
-            
-            # Combine compressed chunks
-            compressed_code = "\n\n".join(compressed_chunks)
-            output = f"{instruction}\n\n{compressed_code}\n\n{query}\n{instruction}"
-            
-            # Calculate actual compressed tokens
-            final_compressed_tokens = self.get_token_length(output)
-            
-            end_time = time.time()
-            logger.debug(f"Code file compression completed in {end_time - start_time:.2f} seconds")
-            logger.debug(f"Compression ratio: {compressed_tokens / total_tokens if total_tokens > 0 else 1.0:.2f}")
-            
+                    # Keep the first omission marker line
+                    cleaned_lines.append(line)
+                    last_non_empty_line_was_omission = True
+            else:
+                # Regular code line
+                cleaned_lines.append(line)
+                last_non_empty_line_was_omission = False
+
+        compressed_code = "\n".join(cleaned_lines)
+        logger.debug("Cleanup finished.")
+        # --- End post-join cleanup ---
+
+
+        output = f"{instruction}\n\n{compressed_code}\n\n{query}\n{instruction}"
+        
+        # Calculate actual compressed tokens
+        final_compressed_tokens = self.get_token_length(output)
+        
+        end_time = time.time()
+        logger.debug(f"Code file compression completed in {end_time - start_time:.2f} seconds")
+        logger.debug(f"Compression ratio: {compressed_tokens / total_tokens if total_tokens > 0 else 1.0:.2f}")
+        
+        if rank_only:
             return {
                 "original_code": code,
                 "compressed_code": compressed_code,
@@ -1285,123 +1274,651 @@ class CodeCompressor:
                 "function_compressions": function_compressions,
                 "selected_functions": selected_indices,
                 "demonstrations_sort": demonstrations_sort,
+                "compressed_chunks": compressed_chunks,
+                "fine_grained_method_used": None,
             }
-        
-        # Compress each function according to its importance
-        logger.debug("Compressing selected functions")
-        compressed_chunks = []
-        compressed_tokens = 0
-        function_compressions = {}
-        
-        # Allocate tokens proportionally based on importance
-        importance_scores = {}
-        for i, idx in enumerate(selected_indices):
-            # Higher importance for functions mentioned early in ranking
-            importance_scores[idx] = len(selected_indices) - i
-        
-        # Calculate total importance
-        total_importance = sum(importance_scores.values()) if importance_scores else 1
-        
-        # Allocate tokens based on importance
-        token_allocation = {}
-        for idx, importance in importance_scores.items():
-            allocation = max(10, int(target_token * importance / total_importance))
-            token_allocation[idx] = min(allocation, self.get_token_length(code_chunks[idx]))
-        
-        # Adjust allocations to fit target
-        logger.debug("Adjusting token allocations to fit target")
-        while sum(token_allocation.values()) > target_token:
-            max_idx = max(token_allocation, key=token_allocation.get)
-            token_allocation[max_idx] = max(0, token_allocation[max_idx] - 10)
-        # Show the allocation
-        logger.debug(f"Token allocation: {token_allocation}")
-        
-        # Process each chunk
-        for i, chunk in tqdm(enumerate(code_chunks), total=len(code_chunks), desc="Compressing functions"):
-            if i in token_allocation and token_allocation[i] > 0:
-                # Calculate compression rate for this chunk
-                chunk_tokens = self.get_token_length(chunk)
-                chunk_rate = token_allocation[i] / chunk_tokens
-                
-                # Apply dynamic compression ratio based on importance
-                dynamic_ratio = dynamic_ratios[selected_indices.index(i)] if i in selected_indices else 0.0
-                
-                # Compress the chunk using line-level compression if requested
-                if use_iterative_compression and chunk_tokens > 50:
-                    compressed_input_ids, _ = self.iterative_compress_prompt_line(
-                        [chunk],
-                        target_token=token_allocation[i],
-                        dynamic_ratio=[dynamic_ratio],
-                    )
-                    compressed_chunk = self.tokenizer.decode(compressed_input_ids[0])
+        else:
+            # enter fine-grained compression
+            logger.debug(f"Starting fine-grained compression on selected functions using method: {fine_grained_importance_method}")
+
+            # --- Dynamic Fine-grained Rate Allocation ---
+            logger.debug("Calculating dynamic fine-grained compression rates...")
+
+            # 1. Collect data for selected functions
+            selected_functions_data = []
+            importance_map = {idx: score for idx, score in demonstrations_sort} # Map index to score
+            total_lines_selected = 0
+            for i in selected_indices:
+                if i < len(code_chunks):
+                    chunk = code_chunks[i]
+                    # Use simple line splitting for allocation efficiency
+                    lines = chunk.split("\n")
+                    line_count = len(lines)
+                    score = importance_map.get(i, 0.0) # Default score 0 if not found
+                    selected_functions_data.append({
+                        "index": i,
+                        "lines": lines,
+                        "line_count": line_count,
+                        "score": score
+                    })
+                    total_lines_selected += line_count
                 else:
-                    # Use simple line-level compression for smaller chunks
-                    compress_result = self.compress_code(
-                        code=chunk,
-                        query=query,
-                        rate=chunk_rate,
-                        use_iterative_compression=False
-                    )
-                    compressed_chunk = compress_result["compressed_code"]
-                
-                compressed_chunks.append(compressed_chunk)
-                chunk_compressed_tokens = self.get_token_length(compressed_chunk)
-                compressed_tokens += chunk_compressed_tokens
-                
-                # Store compression info for this function
-                function_compressions[i] = {
-                    "original_tokens": chunk_tokens,
-                    "compressed_tokens": chunk_compressed_tokens,
-                    "compression_ratio": chunk_compressed_tokens / chunk_tokens if chunk_tokens > 0 else 1.0,
-                }
+                     logger.warning(f"Selected index {i} is out of bounds for code_chunks (length {len(code_chunks)})")
+
+
+            # 2. Calculate overall fine-grained target lines
+            current_fine_ratio = fine_ratio if fine_ratio is not None else rate # Use rate if fine_ratio not set
+            if original_target_token > 0: # If target_token was set explicitly, derive ratio from it for fine-grained stage
+                 # Estimate target lines based on the ratio of selected tokens to total tokens, then apply fine_ratio
+                 selected_tokens = sum(self.get_token_length(code_chunks[d['index']]) for d in selected_functions_data)
+                 effective_coarse_rate = selected_tokens / total_tokens if total_tokens > 0 else 1.0
+                 # Use the user-provided fine_ratio, or fall back to rate/coarse target estimate
+                 fine_target_rate = current_fine_ratio
+                 logger.debug(f"Using fine_ratio={fine_target_rate} for fine-grained target calculation.")
+                 target_total_lines = int(total_lines_selected * fine_target_rate)
+
+            else: # Calculate target based on fine_ratio/rate directly applied to selected lines
+                 target_total_lines = int(total_lines_selected * current_fine_ratio)
+                 logger.debug(f"Using current_fine_ratio={current_fine_ratio} for fine-grained target calculation.")
+
+            logger.debug(f"Total lines in selected functions: {total_lines_selected}")
+            logger.debug(f"Target total lines after fine-grained compression: {target_total_lines}")
+
+            # 3. Separate small and large functions
+            small_functions = []
+            large_functions = []
+            lines_in_small_functions = 0
+            lines_in_large_functions = 0
+
+            for data in selected_functions_data:
+                if data["line_count"] < min_lines_for_fine_grained:
+                    small_functions.append(data)
+                    lines_in_small_functions += data["line_count"]
+                else:
+                    large_functions.append(data)
+                    lines_in_large_functions += data["line_count"]
+
+            logger.debug(f"Found {len(small_functions)} small functions (< {min_lines_for_fine_grained} lines) with {lines_in_small_functions} total lines (will be kept).")
+            logger.debug(f"Found {len(large_functions)} large functions (>= {min_lines_for_fine_grained} lines) with {lines_in_large_functions} total lines.")
+
+            # 4. Calculate target lines for large functions
+            target_lines_for_large = max(0, target_total_lines - lines_in_small_functions)
+            logger.debug(f"Target lines to keep from large functions: {target_lines_for_large}")
+
+            # 5. Allocate rates for large functions
+            function_fine_ratios = {} # Map: index -> individual_fine_ratio
+
+            if not large_functions or lines_in_large_functions == 0:
+                 logger.debug("No large functions to compress further or zero lines in large functions.")
+                 global_rate_for_large = 1.0 if lines_in_large_functions > 0 else 0.0 # Should be 0 if lines_in_large_functions is 0
+            elif target_lines_for_large <= 0:
+                 logger.debug("Target lines for large functions is <= 0. Setting rates to 0.")
+                 global_rate_for_large = 0.0
+            elif target_lines_for_large >= lines_in_large_functions:
+                 logger.debug("Target lines for large functions >= total lines. Setting rates to 1.0.")
+                 global_rate_for_large = 1.0
             else:
-                # Skip this function completely
-                comment_marker = "#" if language.lower() in ["python", "typescript", "rust"] else "//"
-                # omission_text = f"{comment_marker} ... function omitted ..."
-                omission_text = f"{comment_marker} ... "
-                compressed_chunks.append(omission_text)
-                compressed_tokens += self.get_token_length(omission_text)
-                
-        # Combine compressed chunks
-        logger.debug("Combining compressed chunks")
-        compressed_code = "\n\n".join(compressed_chunks)
-        
-        # # If instruction is provided, add it to the final output
-        # output = ""
-        # if instruction:
-        #     output += f"{instruction}\n\n"
-        # output += compressed_code
-        # if query:
-        #     output += f"\n\n{query}"
-        output = f"{instruction}\n\n{compressed_code}\n\n{query}\n{instruction}"
-            
-        # Calculate actual compressed tokens including instruction and query
-        final_compressed_tokens = self.get_token_length(output)
-        
-        end_time = time.time()
-        logger.debug(f"Code file compression completed in {end_time - start_time:.2f} seconds")
-        logger.debug(f"Compression ratio: {compressed_tokens / total_tokens if total_tokens > 0 else 1.0:.2f}")
-        
-        return {
-            "original_code": code,
-            "compressed_code": compressed_code,
-            "compressed_prompt": output,
-            "original_tokens": total_tokens,
-            "compressed_tokens": compressed_tokens,
-            "final_compressed_tokens": final_compressed_tokens,
-            "compression_ratio": compressed_tokens / total_tokens if total_tokens > 0 else 1.0,
-            "function_compressions": function_compressions,
-            "selected_functions": selected_indices,
-            "demonstrations_sort": demonstrations_sort,
-        }
-        
-    def split_code_by_functions(self, code: str, language: str = "python") -> List[str]:
+                global_rate_for_large = target_lines_for_large / lines_in_large_functions
+                logger.debug(f"Global target rate for large functions: {global_rate_for_large:.4f}")
+
+                # Normalize scores for weighting (MinMax scaling)
+                scores = [d["score"] for d in large_functions]
+                valid_scores = [s for s in scores if not math.isinf(s) and not math.isnan(s)]
+
+                if not valid_scores or max(valid_scores) == min(valid_scores):
+                    logger.debug("Scores are uniform or invalid, using global rate for all large functions.")
+                    for data in large_functions:
+                        function_fine_ratios[data["index"]] = global_rate_for_large
+                else:
+                    min_score = min(valid_scores)
+                    max_score = max(valid_scores)
+                    normalized_scores = [(s - min_score) / (max_score - min_score) if not math.isinf(s) and not math.isnan(s) else 0.0 for s in scores] # Normalize to [0, 1], default 0 for invalid
+
+                    # Calculate initial biased rates
+                    initial_rates = []
+                    for norm_score in normalized_scores:
+                        # Bias rate: higher score -> higher rate (closer to 1)
+                        # Beta controls sensitivity. beta=0 -> uniform rate. beta=1 -> max sensitivity.
+                        biased_rate = global_rate_for_large * (1 + importance_beta * (norm_score - 0.5) * 2) # Scale norm_score diff to [-beta, beta]
+                        clamped_rate = max(0.0, min(1.0, biased_rate)) # Clamp to [0, 1]
+                        initial_rates.append(clamped_rate)
+
+                    # Calculate actual lines kept with initial rates
+                    actual_lines_kept = sum(initial_rates[i] * large_functions[i]["line_count"] for i in range(len(large_functions)))
+                    logger.debug(f"Initial biased rates calculated. Estimated lines kept: {actual_lines_kept:.1f}")
+
+                    # Adjust rates proportionally to meet target
+                    if actual_lines_kept > 0 and abs(actual_lines_kept - target_lines_for_large) > 1: # Adjust if difference is significant
+                        adjustment_factor = target_lines_for_large / actual_lines_kept
+                        logger.debug(f"Adjusting rates by factor: {adjustment_factor:.4f}")
+                        final_rates = [max(0.0, min(1.0, r * adjustment_factor)) for r in initial_rates] # Adjust and clamp again
+                    else:
+                        logger.debug("Initial rates are close enough or actual_lines_kept is 0, no adjustment needed.")
+                        final_rates = initial_rates
+
+                    for i, data in enumerate(large_functions):
+                        function_fine_ratios[data["index"]] = final_rates[i]
+
+            # Set rate 1.0 for small functions
+            for data in small_functions:
+                function_fine_ratios[data["index"]] = 1.0
+
+            # --- End Dynamic Allocation ---
+
+
+            # Apply fine-grained compression to each selected function
+            fine_compressed_chunks = []
+            compressed_tokens = 0
+            function_compressions = {}
+
+            # Define a smoothing window size for moving average
+            smoothing_window = 5
+            # fine_ratio = fine_ratio if fine_ratio is not None else rate # Use the same ratio by default if fine_ratio not specified # Removed, using individual ratios now
+
+            # Process each chunk in the original order
+            # Use tqdm.auto for compatibility
+            fine_grained_pbar = tqdm(enumerate(code_chunks), total=len(code_chunks), desc="Fine-Grained Compression", leave=False)
+            for i, chunk in fine_grained_pbar:
+            # for i, chunk in enumerate(code_chunks):
+                if i in selected_indices:
+                    # This function was selected during coarse-grained compression
+                    individual_fine_ratio = function_fine_ratios.get(i) # Get dynamically assigned ratio
+                    if individual_fine_ratio is None:
+                         logger.error(f"Missing fine-grained ratio for selected function index {i}. Skipping fine-grained compression for this chunk.")
+                         individual_fine_ratio = 1.0 # Fallback to keep the chunk
+
+                    # Use semantic chunking for fine-grained compression
+                    chunks, sentences, ppls, spike_indices = self.semantic_chunker.chunk_text_adaptive(
+                        code_chunks[i], method='std', k=0.2, language=language
+                    )
+
+                    # Key fix: if semantic chunking degenerates to 1 block, fall back immediately
+                    if len([c for c in chunks if c.strip()]) <= 1:
+                        logger.warning(
+                            f"Semantic chunking degenerated to 1 block for Func {i}; "
+                            f"fallback to line chunks."
+                        )
+                        if hasattr(self.semantic_chunker, "_fallback_line_chunks"):
+                            chunks = self.semantic_chunker._fallback_line_chunks(code_chunks[i])
+                        else:
+                            chunks = [ln for ln in code_chunks[i].splitlines() if ln.strip()] or [code_chunks[i]]
+
+                    self._log_semantic_chunks(code_chunks[i], chunks, language)
+                    # Use chunks as lines, but preserve all chunks including empty ones to maintain formatting
+                    chunk_lines = chunks  # Keep all chunks to preserve \n\n and formatting
+                    chunk_line_count = len([chunk for chunk in chunk_lines if chunk.strip()])  # Count only non-empty for logic
+                    chunk_score = importance_map.get(i, float('nan')) # Get score
+
+                    logger.debug(f"Processing Func {i}: Entropy Chunks={len(chunk_lines)}, Non-empty={chunk_line_count}, Score={chunk_score:.4f}, Assigned FineRatio={individual_fine_ratio:.4f}")
+
+
+                    # Skip fine-grained compression if ratio is 1.0 (or close) or function is small
+                    if individual_fine_ratio >= 0.999 or chunk_line_count < min_lines_for_fine_grained:
+                        note = "Kept (Ratio=1.0)" if individual_fine_ratio >= 0.999 else f"Kept (Small Func < {min_lines_for_fine_grained} lines)"
+                        logger.debug(f"  - {note}")
+                        fine_compressed_chunks.append(chunk)
+                        chunk_tokens = self.get_token_length(chunk)
+                        compressed_tokens += chunk_tokens
+                        function_compressions[i] = {
+                            "original_tokens": chunk_tokens,
+                            "compressed_tokens": chunk_tokens,
+                            "compression_ratio": 1.0,
+                            "individual_fine_ratio": individual_fine_ratio,
+                            "note": note,
+                            "importance_method": None # No line importance calculation needed
+                        }
+                        continue # Move to next chunk
+
+
+                    # Apply fine-grained compression only if the function is large enough
+                    # and we're not in rank-only mode (already checked) and ratio < 1.0
+                    if chunk_line_count >= min_lines_for_fine_grained and individual_fine_ratio < 0.999:
+                        logger.debug(f"  - Applying fine-grained compression with ratio {individual_fine_ratio:.4f}")
+                        fine_grained_pbar.set_description(f"Fine-Grained Compressing Func {i}")
+                        
+                        # Calculate target tokens for this function
+                        original_func_tokens = self.get_token_length(chunk)
+                        target_func_tokens = int(original_func_tokens * individual_fine_ratio)
+                        
+                        # Calculate importance for each block based on the chosen method
+                        block_importances = []
+                        importance_calculation_start = time.time()
+
+                        if fine_grained_importance_method == "conditional_ppl":
+                            # Calculate conditional PPL importance for each block
+                            if not query or not query.strip():
+                                logger.warning(f"Query is empty for func {i}, cannot calculate conditional PPL. Assigning 0 importance.")
+                                block_importances = [0.0] * len(chunk_lines)
+                            else:
+                                query_ppl_result = self.get_ppl(query, granularity="line")
+                                query_ppl_without_context = query_ppl_result["ppl"]
+
+                                if math.isinf(query_ppl_without_context):
+                                    logger.warning(f"Base query PPL is infinite for func {i}. Assigning 0 importance to blocks.")
+                                    block_importances = [0.0] * len(chunk_lines)
+                                else:
+                                    pbar_cond = tqdm(enumerate(chunk_lines), total=len(chunk_lines), desc=f"Func {i} Block CondPPL", leave=False)
+                                    for block_idx, block in pbar_cond:
+                                        if not block.strip():
+                                            block_importances.append(-float('inf'))  # Low score for empty blocks
+                                            continue
+
+                                        conditional_text = block + "\n\n" + query
+                                        prefix_len_text = block + "\n\n"
+                                        prefix_len = self.get_token_length(prefix_len_text, add_special_tokens=True)
+
+                                        cond_ppl_result = self.get_ppl(
+                                            text=conditional_text,
+                                            granularity="line",
+                                            condition_mode="prefix",
+                                            condition_pos_id=prefix_len - 1
+                                        )
+                                        ppl_with_context = cond_ppl_result["ppl"]
+
+                                        if math.isinf(ppl_with_context):
+                                            ppl_change = -float('inf')
+                                        else:
+                                            ppl_change = query_ppl_without_context - ppl_with_context
+
+                                        block_importances.append(ppl_change)
+                                        pbar_cond.set_description(f"Func {i} Block CondPPL (B{block_idx}: {ppl_change:.2f})")
+
+                        elif fine_grained_importance_method == "contrastive_perplexity":
+                            # Calculate contrastive PPL importance for each block
+                            fine_grained_pbar.set_description(f"Fine-Grained ContrastivePPL Func {i}")
+                            
+                            with torch.no_grad():
+                                pbar = tqdm(enumerate(chunk_lines), total=len(chunk_lines), desc="Block Contrastive PPL", leave=False)
+                                for block_idx, block in pbar:
+                                    if not block.strip():
+                                        block_importances.append(-float('inf'))
+                                        continue
+
+                                    # Build context from previous blocks
+                                    prev_context = "\n\n".join(chunk_lines[:block_idx]) if block_idx > 0 else ""
+                                    
+                                    # 1. PPL(Block | prev_blocks)
+                                    regular_ppl_condition = prev_context + "\n\n" if prev_context else None
+                                    regular_ppl = self._calculate_perplexity_for_contrastive(block, condition_text=regular_ppl_condition)
+
+                                    # 2. PPL(Block | query, prev_blocks)
+                                    question_context_parts = [query]
+                                    if prev_context:
+                                        question_context_parts.append(prev_context)
+                                    question_context = "\n\n".join(filter(None, question_context_parts))
+                                    cond_ppl_condition = question_context + "\n\n"
+                                    cond_ppl = self._calculate_perplexity_for_contrastive(block, condition_text=cond_ppl_condition)
+
+                                    # 3. Importance = PPL(Block|prev) - PPL(Block|Q,prev)
+                                    if math.isinf(regular_ppl) or math.isinf(cond_ppl):
+                                        importance = -float('inf')
+                                    else:
+                                        importance = regular_ppl - cond_ppl
+
+                                    block_importances.append(importance)
+                                    pbar.set_description(f"Block {block_idx}: {importance:.2f}")
+
+                        else:
+                            raise ValueError(f"Unsupported fine_grained_importance_method: {fine_grained_importance_method}")
+
+                        importance_calculation_end = time.time()
+                        logger.debug(f"  - Block importance calculation took {importance_calculation_end - importance_calculation_start:.2f}s")
+
+                        # Identify preserved blocks (function signature, comments, returns)
+                        preserved_block_indices = set()
+                        comment_marker = "#" if language.lower() in ["python", "typescript", "rust"] else "//"
+                        
+                        # Find blocks containing function signature
+                        for block_idx, block in enumerate(chunk_lines):
+                            block_lines = block.split('\n')
+                            for line in block_lines:
+                                if line.strip():
+                                    # Check for function/class definitions
+                                    if any(keyword in line for keyword in ['def ', 'class ', 'function ', 'fn ', 'func ']):
+                                        preserved_block_indices.add(block_idx)
+                                        break
+                                    # Check for function-level comments
+                                    if line.strip().startswith(comment_marker):
+                                        preserved_block_indices.add(block_idx)
+                                        break
+                                    # Check for return statements
+                                    if 'return ' in line:
+                                        preserved_block_indices.add(block_idx)
+                                        break
+                                    break  # Only check first non-empty line of each block
+
+                        # Choose selection method based on use_knapsack parameter
+                        processing_start = time.time()
+                        
+                        if use_knapsack:
+                            # Use knapsack algorithm to select blocks
+                            logger.debug(f"  - Using knapsack algorithm for block selection")
+                            selected_block_indices, selection_info = self._knapsack_block_selection(
+                                blocks=chunk_lines,
+                                block_importances=block_importances,
+                                target_tokens=target_func_tokens,
+                                preserved_block_indices=preserved_block_indices,
+                                language=language
+                            )
+                            
+                            # Build compressed chunk from selected blocks
+                            compressed_blocks = []
+                            
+                            # Determine base indentation for omission markers
+                            base_indentation = ""
+                            for block in chunk_lines:
+                                for line in block.split('\n'):
+                                    if line.strip():
+                                        match = re.match(r"^(\s*)", line)
+                                        if match:
+                                            base_indentation = match.group(1)
+                                        break
+                                if base_indentation:
+                                    break
+                            
+                            omission_marker = f"{base_indentation}{comment_marker} ... "
+                            
+                            # Build output with omission markers for gaps
+                            last_selected_idx = -1
+                            for block_idx in sorted(selected_block_indices):
+                                # Add omission marker if there's a gap
+                                if last_selected_idx != -1 and block_idx > last_selected_idx + 1:
+                                    if not compressed_blocks or compressed_blocks[-1] != omission_marker:
+                                        compressed_blocks.append(omission_marker)
+                                
+                                compressed_blocks.append(chunk_lines[block_idx])
+                                last_selected_idx = block_idx
+
+                            # Handle trailing omission if needed
+                            if last_selected_idx != -1 and last_selected_idx < len(chunk_lines) - 1:
+                                if not compressed_blocks or compressed_blocks[-1] != omission_marker:
+                                    compressed_blocks.append(omission_marker)
+
+                            # Join blocks with double newlines to preserve Entropy chunk structure
+                            compressed_chunk = "\n\n".join(compressed_blocks)
+                            
+                        else:
+                            # Use original greedy line-by-line approach with smoothing
+                            logger.debug(f"  - Using original greedy line-by-line approach")
+                            
+                            # Convert block importances to line importances for compatibility
+                            lines = []
+                            line_importances = []
+                            line_indices = []
+                            
+                            for block_idx, (block, block_importance) in enumerate(zip(chunk_lines, block_importances)):
+                                block_lines = block.split('\n')
+                                for line_idx_in_block, line in enumerate(block_lines):
+                                    global_line_idx = len(lines)
+                                    lines.append(line)
+                                    line_importances.append(block_importance)  # Use block importance for all lines in block
+                                    line_indices.append(global_line_idx)
+                            
+                            # Apply original processing logic with smoothing
+                            full_line_scores = [float('nan')] * len(lines)
+                            for score_idx, original_line_idx in enumerate(line_indices):
+                                if score_idx < len(line_importances):
+                                    full_line_scores[original_line_idx] = line_importances[score_idx]
+
+                            # Replace NaN/Inf with min valid score for consistent processing
+                            valid_scores = [s for s in full_line_scores if not math.isnan(s) and not math.isinf(s)]
+                            if valid_scores:
+                                min_valid_score = min(valid_scores)
+                                if min_valid_score == float('inf') or min_valid_score == -float('inf') or math.isnan(min_valid_score):
+                                    min_replacement_score = 0.0
+                                else:
+                                    min_replacement_score = min_valid_score
+
+                                processed_line_scores = []
+                                for s in full_line_scores:
+                                    if math.isnan(s) or s == -float('inf'):
+                                        processed_line_scores.append(min_replacement_score)
+                                    elif s == float('inf'):
+                                        processed_line_scores.append(min_replacement_score)
+                                    else:
+                                        processed_line_scores.append(s)
+                            else:
+                                processed_line_scores = [0.0] * len(lines)
+
+                            # Apply smoothing using moving average
+                            smoothing_window = 5
+                            smoothed_importances = processed_line_scores.copy()
+                            num_processed_scores = len(processed_line_scores)
+                            for j in range(num_processed_scores):
+                                window_start = max(0, j - smoothing_window // 2)
+                                window_end = min(num_processed_scores, j + smoothing_window // 2 + 1)
+                                window = processed_line_scores[window_start:window_end]
+                                valid_window_scores = [s for s in window if not math.isnan(s) and not math.isinf(s)]
+                                if valid_window_scores:
+                                    smoothed_importances[j] = sum(valid_window_scores) / len(valid_window_scores)
+
+                            # Find preserved lines (convert block indices to line indices)
+                            preserved_line_indices = set()
+                            line_offset = 0
+                            for block_idx, block in enumerate(chunk_lines):
+                                block_lines = block.split('\n')
+                                if block_idx in preserved_block_indices:
+                                    for line_idx_in_block in range(len(block_lines)):
+                                        preserved_line_indices.add(line_offset + line_idx_in_block)
+                                line_offset += len(block_lines)
+
+                            # Sort remaining lines by importance
+                            sortable_lines = []
+                            for idx in range(len(lines)):
+                                if idx not in preserved_line_indices:
+                                    if idx < len(line_indices) and idx < len(line_importances):
+                                        original_score = line_importances[idx]
+                                        if not math.isnan(original_score) and not math.isinf(original_score):
+                                            smoothed_score = smoothed_importances[idx]
+                                            sortable_lines.append((idx, smoothed_score))
+
+                            # Sort descending by score
+                            sorted_line_indices = sorted(sortable_lines, key=lambda x: -x[1])
+
+                            # Calculate target number of lines to keep
+                            total_lines = len(lines)
+                            preserved_count = len(preserved_line_indices)
+                            target_lines = max(preserved_count, int(total_lines * individual_fine_ratio))
+
+                            # Select top lines by importance up to target
+                            selected_lines = set(preserved_line_indices)
+                            for idx, score in sorted_line_indices:
+                                if len(selected_lines) >= target_lines:
+                                    break
+                                selected_lines.add(idx)
+
+                            # Build compressed chunk from selected lines
+                            compressed_chunks = []
+                            base_indentation = ""
+                            if lines:
+                                for line in lines:
+                                    if line.strip():
+                                        match = re.match(r"^(\s*)", line)
+                                        if match:
+                                            base_indentation = match.group(1)
+                                        break
+
+                            omission_marker_line = f"{base_indentation}{comment_marker} ... "
+                            
+                            last_added_line_idx = -1
+                            for j in range(len(lines)):
+                                if j in selected_lines:
+                                    if last_added_line_idx != -1 and j > last_added_line_idx + 1:
+                                        if not compressed_chunks or compressed_chunks[-1] != omission_marker_line:
+                                            compressed_chunks.append(omission_marker_line)
+                                    compressed_chunks.append(lines[j])
+                                    last_added_line_idx = j
+
+                            if last_added_line_idx != -1 and last_added_line_idx < len(lines) - 1:
+                                if not compressed_chunks or compressed_chunks[-1] != omission_marker_line:
+                                    compressed_chunks.append(omission_marker_line)
+
+                            compressed_chunk = "\n".join(compressed_chunks)
+                            
+                            # Create selection info for compatibility
+                            selection_info = {
+                                "method": "greedy_line_by_line",
+                                "preserved_lines": len(preserved_line_indices),
+                                "selected_lines": len(selected_lines),
+                                "total_lines": len(lines),
+                                "smoothing_applied": True
+                            }
+                            selected_block_indices = preserved_block_indices  # For compatibility
+
+                        processing_end = time.time()
+                        method_name = "knapsack" if use_knapsack else "greedy"
+                        logger.debug(f"  - {method_name} selection took {processing_end - processing_start:.2f}s")
+                        
+                        if use_knapsack:
+                            logger.debug(f"  - Selected {len(selected_block_indices)}/{len(chunk_lines)} blocks")
+                        else:
+                            logger.debug(f"  - Selected {len(selected_lines)}/{len(lines)} lines")
+
+                        # Update token count and store compression info
+                        fine_compressed_chunks.append(compressed_chunk)
+                        compressed_chunk_tokens = self.get_token_length(compressed_chunk)
+                        compressed_tokens += compressed_chunk_tokens
+
+                        # Store compression info
+                        actual_compression_ratio = compressed_chunk_tokens / original_func_tokens if original_func_tokens > 0 else 1.0
+                        function_compressions[i] = {
+                            "original_tokens": original_func_tokens,
+                            "compressed_tokens": compressed_chunk_tokens,
+                            "compression_ratio": actual_compression_ratio,
+                            "individual_fine_ratio": individual_fine_ratio,
+                            "preserved_blocks": list(preserved_block_indices),
+                            "selected_blocks": list(selected_block_indices),
+                            "selection_info": selection_info,
+                            "importance_method": fine_grained_importance_method,
+                            "selection_method": "knapsack" if use_knapsack else "greedy_line_by_line"
+                        }
+                        logger.debug(f"  - Compressed func {i}: {original_func_tokens} -> {compressed_chunk_tokens} tokens (Ratio: {actual_compression_ratio:.3f})")
+                    else:
+                         # This case should now be handled by the check at the beginning of the loop
+                         logger.warning(f"Reached unexpected state for func {i}. Keeping chunk as is.")
+                         fine_compressed_chunks.append(chunk)
+                         chunk_tokens = self.get_token_length(chunk)
+                         compressed_tokens += chunk_tokens
+                         function_compressions[i] = {
+                            "original_tokens": chunk_tokens,
+                            "compressed_tokens": chunk_tokens,
+                            "compression_ratio": 1.0,
+                            "individual_fine_ratio": individual_fine_ratio,
+                            "note": "Unexpected state, kept function.",
+                            "importance_method": None
+                         }
+
+                else:
+                    # This function was not selected during coarse-grained compression
+                    # Add a placeholder
+                    comment_marker = "#" if language.lower() in ["python", "typescript", "rust"] else "//"
+                    omission_text = f"{comment_marker} ... "
+                    fine_compressed_chunks.append(omission_text)
+                    compressed_tokens += self.get_token_length(omission_text)
+                    # Log skipped chunk
+                    # logger.debug(f"Skipped Func {i} (not selected in coarse stage)")
+
+
+            # Combine fine-grained compressed chunks
+            compressed_code = "\n\n".join(fine_compressed_chunks)
+
+            # --- Post-join cleanup for consecutive omission markers ---
+            logger.debug("Cleaning up consecutive omission markers after joining...")
+            lines = compressed_code.split("\n")
+            cleaned_lines = []
+            last_non_empty_line_was_omission = False
+            comment_marker = "#" if language.lower() in ["python", "typescript", "rust"] else "//"
+            omission_marker_content = f"{comment_marker} ...".strip() # Content to check against
+
+            for line in lines:
+                stripped_line = line.strip()
+                if not stripped_line:
+                    # Keep empty lines
+                    cleaned_lines.append(line)
+                    # Don't reset the flag here, wait for a non-empty line
+                elif stripped_line == omission_marker_content:
+                    if last_non_empty_line_was_omission:
+                        # Skip this consecutive omission marker line
+                        logger.debug(f"Skipping line: '{line}' (consecutive omission)")
+                        continue
+                    else:
+                        # Keep the first omission marker line
+                        cleaned_lines.append(line)
+                        last_non_empty_line_was_omission = True
+                else:
+                    # Regular code line
+                    cleaned_lines.append(line)
+                    last_non_empty_line_was_omission = False
+
+            compressed_code = "\n".join(cleaned_lines)
+            logger.debug("Cleanup finished.")
+            # --- End post-join cleanup ---
+
+
+            # Ensure instruction/query parts are handled correctly, maybe use a template
+            prompt_parts = []
+            if instruction and instruction.strip():
+                prompt_parts.append(instruction.strip())
+            if compressed_code.strip():
+                prompt_parts.append(compressed_code) # Already has newlines handled
+            if query and query.strip():
+                 # Add query, potentially repeating instruction based on original logic
+                 prompt_parts.append(query.strip())
+                 # Decide if instruction should be repeated after query based on original implementation's needs
+                 # if instruction and instruction.strip(): # Repeat instruction if needed
+                 #     prompt_parts.append(instruction.strip())
+
+            output = "\n\n".join(prompt_parts) # Use double newline separation
+
+            # Calculate final compressed tokens
+            final_compressed_tokens = self.get_token_length(output)
+
+            end_time = time.time()
+            logger.debug(f"Fine-grained compression processing completed in {end_time - start_time:.2f} seconds")
+            final_compression_ratio = compressed_tokens / total_tokens if total_tokens > 0 else 1.0
+            logger.debug(f"Final Compression ratio (fine-grained tokens / total original tokens): {final_compression_ratio:.4f}")
+
+
+            return {
+                "original_code": code,
+                "compressed_code": compressed_code,
+                "compressed_prompt": output,
+                "original_tokens": total_tokens,
+                "compressed_tokens": compressed_tokens,
+                "final_compressed_tokens": final_compressed_tokens,
+                "compression_ratio": final_compression_ratio,
+                "function_compressions": function_compressions,
+                "selected_functions": selected_indices,
+                "demonstrations_sort": demonstrations_sort,
+                "compressed_chunks": fine_compressed_chunks,
+                "fine_grained_method_used": fine_grained_importance_method,
+            }
+    
+
+    def _log_semantic_chunks(self, original_code: str, chunks: List[str], language: str) -> None:
+        """Log the original function/code and the semantic chunking result."""
+        if language.lower() != "python":
+            return
+
+        logger.info("\n" + "=" * 100)
+        logger.info("原函数 / 原始代码：")
+        logger.info("\n" + original_code.rstrip())
+        logger.info("-" * 100)
+        logger.info("语义块划分结果：")
+        for idx, chunk in enumerate(chunks, 1):
+            logger.info(f"【Block {idx}】\n{chunk.rstrip()}")
+        logger.info("=" * 100)
+
+
+    def split_code_by_functions(self, code: str, language: str = "python", custom_separator: str = "# --CHUNK_SEPARATOR-- #") -> List[str]:
         """
         Split code into chunks based on function and class definitions for various languages.
+        Also splits on custom separator if provided.
         
         Args:
             code: The code to split
             language: Programming language of the code (python, cpp, java, typescript, rust, go)
+            custom_separator: Optional custom separator string to also split on
             
         Returns:
             List of code chunks, each containing a function, class, or class method
@@ -1424,120 +1941,408 @@ class CodeCompressor:
             # Go: Improved for multi-line function declarations
             "go": r'(^|\n)(\s*)(?:type\s+[a-zA-Z_][a-zA-Z0-9_]*\s+struct|func\s+(?:\([^)]*\)\s*)?[a-zA-Z_][a-zA-Z0-9_]*\s*\([^{;]*\)(?:\s*[^{;]*\s*)?)\s*(?:{[^}]*}|[^;]*;)?',
         }
-
         
         # Use default Python pattern if language not supported
         if language.lower() not in patterns:
             language = "python"
+        
+        # First check if we need to split by custom separator
+        separator_chunks = []
+        if custom_separator and custom_separator in code:
+            logger.debug(f"Custom separator '{custom_separator}' found, first splitting by separator")
+            separator_chunks = [chunk for chunk in code.split(custom_separator) if chunk.strip()]
+        else:
+            separator_chunks = [code]  # Just one chunk - the entire code
+
+        # Function to split a single chunk by functions/classes
+        def split_chunk_by_pattern(chunk_code):
+            function_pattern = re.compile(patterns[language.lower()], re.MULTILINE)
+            matches = list(function_pattern.finditer(chunk_code))
             
-        function_pattern = re.compile(patterns[language.lower()], re.MULTILINE)
-        
-        # Find all function and class definitions
-        matches = list(function_pattern.finditer(code))
-        logger.debug(f"Found {len(matches)} function and class definitions")
-        
-        # If no functions or classes found, return the whole code as one chunk
-        if not matches:
-            logger.debug("No functions or classes found, returning entire code as one chunk")
-            end_time = time.time()
-            logger.debug(f"Code splitting completed in {end_time - start_time:.2f} seconds")
-            return [code]
-        
-        # Extract chunks that include function and class definitions
-        chunks = []
-        
-        # Add imports and other code before the first function or class
-        if matches[0].start() > 0:
-            chunks.append(code[:matches[0].start()])
-        
-        # Process each function or class match
-        for i, match in enumerate(matches):
-            # Get the current function or class
-            start = match.start()
+            if not matches:
+                return [chunk_code]  # No matches, return whole chunk
+                
+            result_chunks = []
             
-            # Determine end position (either the start of the next function/class or the end of the code)
-            if i < len(matches) - 1:
-                end = matches[i + 1].start()
-            else:
-                end = len(code)
+            # Add code before first match
+            if matches[0].start() > 0:
+                result_chunks.append(chunk_code[:matches[0].start()])
             
-            # Extract the function/class and its body
-            chunks.append(code[start:end])
+            # Process each match
+            for i, match in enumerate(matches):
+                start = match.start()
+                
+                # End is either start of next match or end of code
+                if i < len(matches) - 1:
+                    end = matches[i + 1].start()
+                else:
+                    end = len(chunk_code)
+                
+                result_chunks.append(chunk_code[start:end])
+            
+            return result_chunks
+        
+        # Now apply function/class splitting to each separator chunk
+        final_chunks = []
+        for chunk in separator_chunks:
+            function_chunks = split_chunk_by_pattern(chunk)
+            final_chunks.extend(function_chunks)
         
         end_time = time.time()
-        logger.debug(f"Code splitting completed in {end_time - start_time:.2f} seconds")
-        logger.debug(f"Split code into {len(chunks)} chunks")
+        logger.debug(f"Code splitting completed in {time.time() - start_time:.2f} seconds")
+        logger.debug(f"Split code into {len(final_chunks)} chunks (using both separator and patterns)")
         
-        return chunks
+        return final_chunks
 
-def load_examples(language: Optional[str] = None) -> List[Dict]:
-    """Load examples from the results file, optionally filtered by language"""
-    with open("../results/ntoken_16384/Qwen_slash_Qwen2.5-7B-Instruct.jsonl", "r") as f:
-    # with open("../results/ntoken_16384/Qwen_slash_Qwen2.5-7B-Instruct-GPTQ-Int4.jsonl", "r") as f:
-        data = [json.loads(line) for line in f]
+    def _calculate_perplexity_for_contrastive(self, text, condition_text=None):
+        """Helper to calculate perplexity of text, optionally conditioned on condition_text"""
+        if condition_text:
+            full_text = condition_text + text
+            inputs = self.tokenizer(full_text, return_tensors="pt", add_special_tokens=True).to(self.device) # Use add_special_tokens=True for consistency
+            
+            condition_input_ids = self.tokenizer(condition_text, return_tensors="pt", add_special_tokens=True).input_ids
+            condition_length = condition_input_ids.size(1)
 
-    if language:
-        data = [example for example in data if example["language"] == language]
-        if not data:
-            available_languages = set(ex["language"] for ex in data)
-            raise ValueError(f"No examples found for language '{language}'. Available languages: {available_languages}")
+            # Handle potential edge case where condition length might exceed max length or input length
+            if condition_length >= inputs.input_ids.size(1):
+                    logger.warning(f"Condition length ({condition_length}) >= input length ({inputs.input_ids.size(1)}). Cannot calculate conditional PPL.")
+                    return float('inf')
 
-    return data
+            with torch.no_grad():
+                outputs = self.model(input_ids=inputs.input_ids, attention_mask=inputs.attention_mask) # Pass attention_mask
 
-# Simple test code
+            # Logits for the 'text' part, labels are the 'text' part shifted
+            logits = outputs.logits[0, condition_length-1:-1]
+            labels = inputs.input_ids[0, condition_length:]
+
+            if logits.size(0) == 0 or labels.size(0) == 0 or logits.size(0) != labels.size(0):
+                logger.warning(f"Logits/Labels shape mismatch or empty in _calculate_perplexity_for_contrastive (cond). Logits: {logits.shape}, Labels: {labels.shape}. Returning inf.")
+                return float('inf') # Return inf if shapes mismatch or empty
+
+            loss_fct = torch.nn.CrossEntropyLoss(reduction="none")
+            loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
+            mean_loss = loss.mean().item()
+            perplexity = math.exp(mean_loss) if not math.isnan(mean_loss) and not math.isinf(mean_loss) else float('inf')
+
+        else:
+            # Calculate unconditional perplexity
+            inputs = self.tokenizer(text, return_tensors="pt", add_special_tokens=True).to(self.device) # Use add_special_tokens=True
+            with torch.no_grad():
+                outputs = self.model(input_ids=inputs.input_ids, attention_mask=inputs.attention_mask) # Pass attention_mask
+
+            # Logits for all tokens except last, labels are all tokens except first
+            logits = outputs.logits[0, :-1]
+            labels = inputs.input_ids[0, 1:]
+
+            if logits.size(0) == 0 or labels.size(0) == 0 or logits.size(0) != labels.size(0):
+                logger.warning(f"Logits/Labels shape mismatch or empty in _calculate_perplexity_for_contrastive (uncond). Logits: {logits.shape}, Labels: {labels.shape}. Returning inf.")
+                return float('inf') # Return inf if shapes mismatch or empty
+
+            loss_fct = torch.nn.CrossEntropyLoss(reduction="none")
+            loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
+            mean_loss = loss.mean().item()
+            perplexity = math.exp(mean_loss) if not math.isnan(mean_loss) and not math.isinf(mean_loss) else float('inf')
+
+        return perplexity
+
+    def _calculate_contrastive_perplexity(self, code_lines: List[str], question: str):
+        """
+        Calculate contrastive perplexity-based importance for each line of code.
+        s_i = perplexity(x_i | x_{<i}) - perplexity(x_i | x^{que}, x_{<i})
+        Higher score means the question helps predict the line more.
+
+        Args:
+            code_lines: List of code lines to analyze
+            question: The query/question text
+
+        Returns:
+            Tuple of (line_scores, scored_indices)
+        """
+        logger.debug("Calculating contrastive perplexity-based line importance...")
+        line_scores = []
+        scored_indices = []
+
+        with torch.no_grad():
+            # Use tqdm.auto for better compatibility
+            pbar = tqdm(enumerate(code_lines), total=len(code_lines), desc="Contrastive PPL", leave=False)
+            for i, line in pbar:
+                if not line.strip():
+                    continue  # Skip empty lines
+
+                # Ensure line has content before proceeding
+                if not line:
+                    logger.debug(f"Skipping empty line {i}")
+                    continue
+
+                # 1. PPL(L_i | L_<i)
+                prev_context = "\n".join(code_lines[:i])
+                # Add newline only if previous context exists
+                regular_ppl_condition = prev_context + "\n" if prev_context else None
+                regular_ppl = self._calculate_perplexity_for_contrastive(line, condition_text=regular_ppl_condition)
+
+
+                # 2. PPL(L_i | Q, L_<i)
+                # Combine question and previous context carefully
+                question_context_parts = [question]
+                if prev_context:
+                    question_context_parts.append(prev_context)
+                # Join with double newline between Q and prev_context if both exist
+                question_context = "\n\n".join(filter(None, question_context_parts))
+                # Add trailing newline before the target line
+                cond_ppl_condition = question_context + "\n"
+                cond_ppl = self._calculate_perplexity_for_contrastive(line, condition_text=cond_ppl_condition)
+
+                # 3. Importance = PPL(L|prev) - PPL(L|Q,prev)
+                if math.isinf(regular_ppl) or math.isinf(cond_ppl):
+                    # If either is infinite, the difference isn't well-defined for ranking.
+                    # Assign a very low score, potentially based on which one is inf.
+                    # If regular_ppl is inf, question might still help (cond_ppl could be finite).
+                    # If cond_ppl is inf, question made it worse or impossible to predict.
+                    # Let's assign -inf for simplicity, meaning "least important".
+                    importance = -float('inf')
+                    logger.debug(f"Line {i}: Inf PPL detected. Regular: {regular_ppl}, Conditional: {cond_ppl}. Importance set to -inf")
+                else:
+                    importance = regular_ppl - cond_ppl
+                    logger.debug(f"Line {i}: PPL(L|prev)={regular_ppl:.4f}, PPL(L|Q,prev)={cond_ppl:.4f}, Importance={importance:.4f}")
+
+                line_scores.append(importance)
+                scored_indices.append(i)
+                # Update tqdm description if needed, e.g., with last score
+                # pbar.set_description(f"Contrastive PPL (L{i}: {importance:.2f})")
+
+        logger.debug(f"Finished calculating contrastive PPL for {len(line_scores)} lines.")
+        return line_scores, scored_indices
+
+    def _knapsack_block_selection(
+        self,
+        blocks: List[str],
+        block_importances: List[float],
+        target_tokens: int,
+        preserved_block_indices: set = None,
+        language: str = "python"
+    ) -> Tuple[set, Dict]:
+        """
+        Use knapsack algorithm to select blocks that maximize total importance within token budget.
+        
+        Args:
+            blocks: List of code blocks (Entropy chunks)
+            block_importances: Importance scores for each block
+            target_tokens: Target number of tokens to keep
+            preserved_block_indices: Set of block indices that must be preserved
+            language: Programming language for omission markers
+            
+        Returns:
+            Tuple of (selected_block_indices, selection_info)
+        """
+        logger.debug(f"Running knapsack block selection with target_tokens={target_tokens}")
+        
+        if not blocks:
+            return set(), {}
+        
+        # Calculate token weights for each block
+        block_weights = [self.get_token_length(block) for block in blocks]
+        
+        # Handle preserved blocks
+        if preserved_block_indices is None:
+            preserved_block_indices = set()
+        
+        # Calculate tokens already used by preserved blocks
+        preserved_tokens = sum(block_weights[i] for i in preserved_block_indices)
+        remaining_budget = max(0, target_tokens - preserved_tokens)
+        
+        logger.debug(f"Preserved blocks: {len(preserved_block_indices)}, tokens: {preserved_tokens}")
+        logger.debug(f"Remaining budget for knapsack: {remaining_budget}")
+        
+        # If no remaining budget, just return preserved blocks
+        if remaining_budget <= 0:
+            return preserved_block_indices, {
+                "method": "knapsack",
+                "preserved_only": True,
+                "total_value": sum(block_importances[i] for i in preserved_block_indices),
+                "total_weight": preserved_tokens
+            }
+        
+        # Prepare items for knapsack (excluding preserved blocks)
+        knapsack_items = []
+        for i, (weight, value) in enumerate(zip(block_weights, block_importances)):
+            if i not in preserved_block_indices:
+                # Handle invalid importance scores
+                if math.isnan(value) or math.isinf(value):
+                    value = 0.0
+                knapsack_items.append((i, weight, value))
+        
+        # Sort by value-to-weight ratio for efficiency (greedy approximation first)
+        knapsack_items.sort(key=lambda x: x[2] / max(x[1], 1), reverse=True)
+        
+        # Use dynamic programming for exact knapsack solution
+        # For efficiency, limit to reasonable problem size
+        if len(knapsack_items) <= 100 and remaining_budget <= 2000:
+            selected_indices = self._solve_knapsack_dp(knapsack_items, remaining_budget)
+        else:
+            # Use greedy approximation for large problems
+            logger.debug("Using greedy approximation for large knapsack problem")
+            selected_indices = self._solve_knapsack_greedy(knapsack_items, remaining_budget)
+        
+        # Combine with preserved blocks
+        final_selection = preserved_block_indices.union(selected_indices)
+        
+        # Calculate selection statistics
+        total_value = sum(block_importances[i] for i in final_selection)
+        total_weight = sum(block_weights[i] for i in final_selection)
+        
+        selection_info = {
+            "method": "knapsack",
+            "preserved_blocks": len(preserved_block_indices),
+            "selected_blocks": len(selected_indices),
+            "total_blocks": len(final_selection),
+            "total_value": total_value,
+            "total_weight": total_weight,
+            "target_weight": target_tokens,
+            "efficiency": total_value / max(total_weight, 1)
+        }
+        
+        logger.debug(f"Knapsack selection: {len(final_selection)}/{len(blocks)} blocks, "
+                    f"value={total_value:.2f}, weight={total_weight}/{target_tokens}")
+        
+        return final_selection, selection_info
+
+    def _solve_knapsack_dp(self, items: List[Tuple[int, int, float]], capacity: int) -> set:
+        """
+        Solve knapsack problem using dynamic programming.
+        
+        Args:
+            items: List of (index, weight, value) tuples
+            capacity: Maximum weight capacity
+            
+        Returns:
+            Set of selected item indices
+        """
+        n = len(items)
+        if n == 0 or capacity <= 0:
+            return set()
+        
+        # DP table: dp[i][w] = maximum value using first i items with weight limit w
+        dp = [[0.0 for _ in range(capacity + 1)] for _ in range(n + 1)]
+        
+        # Fill DP table
+        for i in range(1, n + 1):
+            idx, weight, value = items[i - 1]
+            for w in range(capacity + 1):
+                # Don't take item i
+                dp[i][w] = dp[i - 1][w]
+                
+                # Take item i if it fits
+                if weight <= w:
+                    dp[i][w] = max(dp[i][w], dp[i - 1][w - weight] + value)
+        
+        # Backtrack to find selected items
+        selected = set()
+        w = capacity
+        for i in range(n, 0, -1):
+            if dp[i][w] != dp[i - 1][w]:
+                idx, weight, value = items[i - 1]
+                selected.add(idx)
+                w -= weight
+        
+        return selected
+
+    def _solve_knapsack_greedy(self, items: List[Tuple[int, int, float]], capacity: int) -> set:
+        """
+        Solve knapsack problem using greedy approximation (by value/weight ratio).
+        
+        Args:
+            items: List of (index, weight, value) tuples (should be pre-sorted by ratio)
+            capacity: Maximum weight capacity
+            
+        Returns:
+            Set of selected item indices
+        """
+        selected = set()
+        current_weight = 0
+        
+        for idx, weight, value in items:
+            if current_weight + weight <= capacity:
+                selected.add(idx)
+                current_weight += weight
+        
+        return selected
+
+
+
 if __name__ == "__main__":
     # Load real examples from the dataset
-    examples = load_examples(language="python")
-    example = examples[0]  # Use the first example
-    sample_code = example["code_context"]
-    query = example["description"]
-    language = example["language"]
+    # with open("exp-cur50lines-bg5000tokens/results/deepseek-coder-6.7b-instruct/method_code_compressor_t2048_rankonly/deepseek-ai_slash_deepseek-coder-6.7b-instruct.jsonl", "r") as f:
+    with open("exp-cur50lines-bg5000tokens-500examples/results/mistral-7b-instruct/method_code_compressor_t512_rankonly/mistralai_slash_Mistral-7B-Instruct-v0.3.jsonl", "r") as f:
+        data = [json.loads(line) for line in f]
     
-    print(f"Using example with language: {language}")
-    print(f"Query: {query}")
-    
+    example = data[190]
+    # print(example.keys()) # dict_keys(['id', 'gt', 'original_background_context', 'original_current_function_context', 'language', 'prompt', 'output', 'es', 'em'])
+
+    context = example["original_background_context"]
+    question = example["original_current_function_context"]
+    ground_truth = example["gt"]
+
     # Initialize compressor
-    print("Initializing compressor...")
-    compressor = CodeCompressor()
+    logger.info("Initializing compressor...")
+    model_name = "Qwen/Qwen2.5-Coder-7B-Instruct"
+    compressor = CodeCompressor(model_name=model_name)
     
     # Test function-based code file compression with query
-    print("\nTesting function-based code file compression with query...")
-    
-    start_time = time.time()
-    file_result = compressor.compress_code_file(
-        code=sample_code,
-        query=query,
-        rate=0.1,
-        language=language
+    logger.info("\nTesting function-based code file compression with query...")
+
+    original_tokens = len(compressor.tokenizer.encode(context))
+    target_token = 512
+    target_ratio = min(1.0, max(0.0, target_token / original_tokens))
+    logger.info(f"CodeCompressor: Original tokens={original_tokens}, Target tokens={target_token}, Calculated ratio={target_ratio:.4f}")
+
+    result = compressor.compress_code_file(
+        code=context,
+        query=question, # Using current function context as query focus
+        instruction="Complete the following code function given the context.",
+        rate=target_ratio,
+        rank_only=False, # Test fine-grained compression
+        fine_grained_importance_method="contrastive_perplexity", # Explicitly test default
+        min_lines_for_fine_grained=5, # New parameter
+        importance_beta=0.5, # Sensitivity to importance score
+        use_knapsack=True,
     )
-    end_time = time.time()
-    
-    print(f"File compression with query completed in {end_time - start_time:.2f} seconds")
-    print(f"Original tokens: {file_result['original_tokens']}")
-    print(f"Compressed tokens: {file_result['compressed_tokens']}")
-    print(f"Final compressed tokens (with query): {file_result['final_compressed_tokens']}")
-    print(f"Compression ratio: {file_result['compression_ratio']:.2f}")
-    print(f"Kept function IDs: {file_result['selected_functions']}")
-    print(f"Demonstrations sort: {file_result['demonstrations_sort']}")
 
-    chunk_ppl_scores = {idx: score for idx, score in file_result['demonstrations_sort']}
-    top_5_score = sorted(chunk_ppl_scores.values(), reverse=True)[5]
-    # Split into chunks and show the chunks
-    chunks = compressor.split_code_by_functions(sample_code, language=language)
-    print(f"Split code into {len(chunks)} chunks")
-    # show the chunk with corresponding ppl score
-    for i, chunk in enumerate(chunks):
-        print(f"==========Chunk {i+1} with demonstration sort: {chunk_ppl_scores[i]}==========")
-        if chunk_ppl_scores[i] >= top_5_score:
-            print(chunk)
-            print("\n")
-        else:
-            # only show some lines and then use ... to indicate the rest
-            print(chunk[:100])
-            print("...")
-            print(chunk[-100:])
-            print("\n")
+    # show the compressed code
+    logger.info(f"Compressed code (using {result['fine_grained_method_used']}): \n{result['compressed_code']}")
+    logger.info(f"Current function context: \n{question}")
+    # final prompt
+    final_prompt = result['compressed_prompt']
+    # get the completion
+    try:
+        tokenized_prompt = compressor.tokenizer(final_prompt, return_tensors="pt").to(compressor.device)
+        # Increase max_new_tokens for potentially longer completions
+        completion_ids = compressor.model.generate(**tokenized_prompt, max_new_tokens=128, pad_token_id=compressor.tokenizer.eos_token_id)
+        # Decode only the generated part, skipping special tokens
+        completion = compressor.tokenizer.decode(completion_ids[0][len(tokenized_prompt.input_ids[0]):], skip_special_tokens=True)
 
-    print("\nCompressed Code File with Query:")
-    print("-------------------")
-    print(file_result['compressed_code'])
+        # Basic cleanup: remove leading/trailing whitespace and potentially stop words if needed
+        completion = completion.strip()
+        # More robust cleanup: Find the first meaningful line if generation includes noise
+        completion_lines = [line for line in completion.split("\n") if line.strip() and not line.strip().startswith(("#", "//"))] # Simple comment removal
+        cleaned_completion = completion_lines[0] if completion_lines else completion # Take first non-comment line or original if none found
+
+    except Exception as e:
+        logger.error(f"Error during generation or decoding: {e}")
+        cleaned_completion = "[ERROR DURING GENERATION]"
+
+    logger.info(f"Cleaned Completion: {cleaned_completion}")
+    logger.info(f"Ground truth: {ground_truth}")
+
+    # Optional: Test with conditional_ppl method
+    logger.info("\nTesting fine-grained compression with conditional_ppl...")
+    result_cond = compressor.compress_code_file(
+        code=context,
+        query=question,
+        instruction="Complete the following code function given the context.",
+        rate=target_ratio,
+        rank_only=False,
+        fine_grained_importance_method="conditional_ppl",
+        min_lines_for_fine_grained=5,
+        importance_beta=0.5
+    )
+    logger.info(f"Compressed code (using {result_cond['fine_grained_method_used']}): \n{result_cond['compressed_code']}")

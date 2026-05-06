@@ -1,0 +1,15 @@
+[
+  {
+    "repo": "ynput__OpenPype",
+    "docfile_name": "assignments_and_allocations.rst",
+    "doc_type": "Tutorial/Subdoc",
+    "intent": "Working with assignments and allocations",
+    "license": "MIT License",
+    "path_to_docfile": "ynput__OpenPype/openpype/modules/ftrack/python2_vendor/ftrack-python-api/doc/example/assignments_and_allocations.rst",
+    "relevant_code_files": [
+      "ynput__OpenPype/openpype/modules/ftrack/python2_vendor/ftrack-python-api/source/ftrack_api/session.py"
+    ],
+    "target_text": "Working with assignments and allocations\n\nThe API exposes assignments and allocations relationships on objects in the project hierarchy. You can use these to retrieve the allocated or assigned resources, which can be either groups or users.\n\nAllocations can be used to allocate users or groups to a project team, while assignments are more explicit and are used to assign users to tasks. Both assignments and allocations are modelled as Appointment objects.",
+    "relevant_code_context": "# coding: utf-8\nfrom __future__ import absolute_import\nimport json\nimport logging\nimport collections\nimport datetime\nimport os\nimport getpass\nimport functools\n\nclass Session(object):\n    def __init__(self):\n        pass\n"
+  }
+]

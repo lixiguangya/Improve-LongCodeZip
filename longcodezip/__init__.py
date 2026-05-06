@@ -16,6 +16,7 @@ import sys
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 
+#基于熵(困惑度)的文本分块器
 class EntropyChunking:
     def __init__(self, model_name="Qwen/Qwen2.5-Coder-0.5B-Instruct"):
         """Entropy-based text chunking implementation"""

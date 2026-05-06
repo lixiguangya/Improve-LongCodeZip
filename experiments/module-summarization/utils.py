@@ -15,36 +15,75 @@ def truncate_text(text, max_len=512):
     return text[:max_len//2] + "\n...\n" + text[-max_len//2:]
 
 
-def load_dataset_samples(dataset_name="JetBrains-Research/lca-module-summarization", split="test",
-                         max_examples=None, hf_api_key=None, max_tokens=32768, min_tokens=1024):
-    """Load dataset samples with optional limiting and filtering of long examples."""
+def load_dataset_samples(
+    dataset_name="JetBrains-Research/lca-module-summarization",
+    split="test",
+    max_examples=None,
+    hf_api_key=None,
+    max_tokens=32768,
+    min_tokens=1024
+):
+    """
+    Load dataset samples with optional limiting and filtering of long examples.
+    After filtering, print:
+      - Avg. Context Len.
+      - Avg. Ground Truth Len.
+    """
     dataset = load_dataset(dataset_name, token=hf_api_key)[split]
+
     if max_examples is not None:
         dataset = dataset.select(range(min(max_examples, len(dataset))))
 
-    # Filter out examples with extremely long code
+    # Filter out examples with extremely long/short code
     if max_tokens > 0:
         filtered_indices = []
         skipped_count_long = 0
         skipped_count_short = 0
+
         tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-Coder-7B-Instruct")
 
+        # 用于统计保留下来的样本平均长度
+        total_context_tokens = 0
+        total_ground_truth_tokens = 0
+        kept_count = 0
+
         for i, row in enumerate(tqdm(dataset, desc="Filtering long examples")):
-            code = row['relevant_code_context']
-            if len(code) > max_tokens*10:
-                logger.warning(f"Skipping example {i} because it exceeds {max_tokens*10} characters ({len(code)}/{max_tokens*10})")
+            code = row["relevant_code_context"]
+            gt = row.get("target_text", "")
+
+            if len(code) > max_tokens * 10:
+                logger.warning(
+                    f"Skipping example {i} because it exceeds {max_tokens*10} characters "
+                    f"({len(code)}/{max_tokens*10})"
+                )
                 skipped_count_long += 1
                 continue
-            tokens = tokenizer.encode(code, truncation=False)
-            if len(tokens) > max_tokens:
-                logger.warning(f"Skipping example {i} because it exceeds {max_tokens} tokens ({len(tokens)}/{max_tokens})")
+
+            context_tokens = tokenizer.encode(code, truncation=False)
+            gt_tokens = tokenizer.encode(gt, truncation=False) if gt else []
+
+            if len(context_tokens) > max_tokens:
+                logger.warning(
+                    f"Skipping example {i} because it exceeds {max_tokens} tokens "
+                    f"({len(context_tokens)}/{max_tokens})"
+                )
                 skipped_count_long += 1
                 continue
-            if len(tokens) < min_tokens:
-                logger.warning(f"Skipping example {i} because it is too short ({len(tokens)}/{min_tokens})")
+
+            if len(context_tokens) < min_tokens:
+                logger.warning(
+                    f"Skipping example {i} because it is too short "
+                    f"({len(context_tokens)}/{min_tokens})"
+                )
                 skipped_count_short += 1
                 continue
+
             filtered_indices.append(i)
+
+            # 统计保留样本的平均 token 长度
+            total_context_tokens += len(context_tokens)
+            total_ground_truth_tokens += len(gt_tokens)
+            kept_count += 1
 
         if skipped_count_long > 0:
             logger.info(f"Skipped {skipped_count_long} examples that exceeded token limit of {max_tokens}")
@@ -52,6 +91,13 @@ def load_dataset_samples(dataset_name="JetBrains-Research/lca-module-summarizati
             logger.info(f"Skipped {skipped_count_short} examples that are too short ({min_tokens} tokens)")
 
         dataset = dataset.select(filtered_indices)
+
+        # 打印平均 token 长度
+        avg_context_len = total_context_tokens / kept_count if kept_count > 0 else 0.0
+        avg_ground_truth_len = total_ground_truth_tokens / kept_count if kept_count > 0 else 0.0
+
+        logger.info(f"Avg. Context Len. = {avg_context_len:.2f}")
+        logger.info(f"Avg. Ground Truth Len. = {avg_ground_truth_len:.2f}")
 
     return dataset
 

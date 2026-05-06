@@ -809,16 +809,15 @@ def compute_block_stats(
 
 def semantic_dependency_count(stats: Dict[str, Any]) -> int:
     """
-    Return one dependency signal for block selection.
+    Dependency score used by l7 block selection.
 
-    `used_by_total` catches definition/setup blocks that later code relies on.
-    `depends_on_total` catches consumer/check/branch blocks that encode how the
-    setup is used. For completion both directions can matter, so l4 keeps the
-    larger count instead of looking only at被依赖数.
+    Keep l2's successful behavior as the default: count how many later blocks
+    depend on this block. Consumer-side dependency counts are exposed in the
+    stats for analysis, but not mixed into the score here because l4/l5-style
+    bidirectional scoring moved selection away from several exact-match cases.
     """
     used_by_total = safe_int(stats.get("used_by_total", 0), 0)
-    depends_on_total = safe_int(stats.get("depends_on_total", 0), 0)
-    return max(used_by_total, depends_on_total)
+    return max(0, used_by_total)
 
 
 # =========================================================

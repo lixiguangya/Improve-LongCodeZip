@@ -10,7 +10,7 @@ import fire
 from utils import load_data, compute_EM, compute_ES
 from vllm import LLM, SamplingParams
 from loguru import logger
-from code_compressor_l4 import CodeCompressor
+from code_compressor_ff1 import CodeCompressor
 import gc
 from typing import List
 import re

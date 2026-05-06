@@ -11,6 +11,10 @@ split_code_fixed_semantic_blocks.py
 3) raise / pass / return 等终结语句不再被吞掉，作为独立 atomic 语句保留
 4) if / elif / else 分支严格拆分；分支体 <= 阈值时整体作为一个块，否则拆 header 后递归
 5) 支持 function / class / module / suite 四种输入
+
+l7 说明：
+- 保持 split_code1 的语义块边界，不把 docstring/前导注释合并进块。
+- 之前 l4/l5 的块扩大策略会提高单块 token 成本，并让 NSGA-II 在预算内少选关键执行语句。
 """
 
 from __future__ import annotations
@@ -2303,75 +2307,6 @@ def build_class_header_block(class_node: ast.ClassDef, source_lines: List[str], 
     return make_block(0, "definition", "classdef", 0, [], [], header_text, line_graph,
                       start_line=class_start, end_line=header_end, synthetic=True)
 
-def _safe_line_no(value: Any, default: int = 0) -> int:
-    try:
-        return int(value)
-    except Exception:
-        return default
-
-
-def attach_leading_comments_to_blocks(blocks: List[SemanticBlock], source_lines: List[str], max_comment_lines: int = 6) -> List[SemanticBlock]:
-    """
-    Attach nearby standalone comments to the following semantic block.
-
-    AST nodes do not own comments, but in completion tasks a comment immediately
-    before a statement usually explains that statement. Keep this conservative:
-    do not cross code lines, do not swallow long license headers, and keep at most
-    a small local comment run.
-    """
-    if not blocks or not source_lines:
-        return blocks
-
-    ordered = sorted(
-        blocks,
-        key=lambda b: (
-            b.start_line if b.start_line >= 0 else 10**9,
-            b.end_line if b.end_line >= 0 else 10**9,
-            b.depth,
-            b.kind,
-        ),
-    )
-    previous_end = 0
-    for block in ordered:
-        start = _safe_line_no(getattr(block, "start_line", 0), 0)
-        if start <= 1 or not getattr(block, "code", "").strip():
-            previous_end = max(previous_end, _safe_line_no(getattr(block, "end_line", 0), 0))
-            continue
-
-        scan = start - 1
-        leading: List[str] = []
-        seen_comment = False
-        blank_after_comment = 0
-
-        while scan > previous_end:
-            line = source_lines[scan - 1]
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                leading.append(line)
-                seen_comment = True
-                blank_after_comment = 0
-                scan -= 1
-                if sum(1 for item in leading if item.strip().startswith("#")) >= max_comment_lines:
-                    break
-                continue
-            if not stripped and seen_comment and blank_after_comment == 0:
-                leading.append(line)
-                blank_after_comment += 1
-                scan -= 1
-                continue
-            break
-
-        while leading and not leading[-1].strip():
-            leading.pop()
-        if leading and any(item.strip().startswith("#") for item in leading):
-            leading = list(reversed(leading))
-            block.code = ("\n".join(leading).rstrip() + "\n" + block.code).rstrip()
-            block.start_line = max(1, start - len(leading))
-
-        previous_end = max(previous_end, _safe_line_no(getattr(block, "end_line", 0), 0))
-
-    return ordered
-
 def build_semantic_blocks(
     func_node: ast.AST,
     source_text: str,
@@ -2392,7 +2327,6 @@ def build_semantic_blocks(
 
     blocks = [b for b in blocks if b.code.strip() or b.stmt_infos or b.synthetic]
     blocks.sort(key=lambda b: (b.start_line if b.start_line >= 0 else 10**9, b.end_line if b.end_line >= 0 else 10**9, b.depth, b.kind))
-    blocks = attach_leading_comments_to_blocks(blocks, source_lines)
 
     meaningful = [b for b in blocks if b.code.strip()]
     if len(meaningful) <= 1:
@@ -2420,7 +2354,6 @@ def build_class_semantic_blocks(class_node: ast.ClassDef, source_text: str, sour
     blocks.extend(build_suite_semantic_blocks(body_stmts, source_text, source_lines, depth=1))
     blocks = [b for b in blocks if b.code.strip() or b.stmt_infos or b.synthetic]
     blocks.sort(key=lambda b: (b.start_line if b.start_line >= 0 else 10**9, b.end_line if b.end_line >= 0 else 10**9, b.depth, b.kind))
-    blocks = attach_leading_comments_to_blocks(blocks, source_lines)
     for idx, blk in enumerate(blocks, 1):
         blk.block_id = idx
     return blocks
@@ -2431,7 +2364,6 @@ def build_suite_semantic_blocks(stmts: List[ast.AST], source_text: str, source_l
     blocks = segment_suite(stmts, source_text, source_lines, line_graph=None, stmt_by_ast_id=stmt_by_ast_id, scope_chain=[], depth=depth)
     blocks = [b for b in blocks if b.code.strip() or b.stmt_infos or b.synthetic]
     blocks.sort(key=lambda b: (b.start_line if b.start_line >= 0 else 10**9, b.end_line if b.end_line >= 0 else 10**9, b.depth, b.kind))
-    blocks = attach_leading_comments_to_blocks(blocks, source_lines)
     for idx, blk in enumerate(blocks, 1):
         blk.block_id = idx
     return blocks
