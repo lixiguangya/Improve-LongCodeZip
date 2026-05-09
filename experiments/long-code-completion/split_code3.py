@@ -61,7 +61,7 @@ suppress_lib2to3_noise()
 # 1) 配置区
 # =========================================================
 
-JOERN_HOME = r"/home/zhangmanqing/wyh/joern-cli"
+JOERN_HOME = r"/home/nwpu_wyh/joern-cli"
 
 # 这里保留和你原来一样的入口风格；实际运行时你可以直接改这两个常量
 SOURCE_CODE = r"""

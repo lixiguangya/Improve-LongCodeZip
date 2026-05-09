@@ -54,7 +54,7 @@ else:
 USE_INLINE_SOURCE = True
 SOURCE_FILE_PATH = r""
 FUNCTION_NAME = "update"
-JOERN_HOME = r"/home/zhangmanqing/wyh/joern-cli"
+JOERN_HOME = r"/home/nwpu_wyh/joern-cli"
 WORK_ROOT = Path(".semantic_block_viz")
 OUT_DIR = None
 

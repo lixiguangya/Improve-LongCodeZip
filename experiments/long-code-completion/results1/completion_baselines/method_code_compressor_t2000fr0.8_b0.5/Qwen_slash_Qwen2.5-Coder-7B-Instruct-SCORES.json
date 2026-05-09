@@ -1,13 +1,15 @@
 {
     "model_name": "Qwen/Qwen2.5-Coder-7B-Instruct",
+    "model_load_path": "/home/nwpu_wyh/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242",
+    "compression_model_load_path": "/home/nwpu_wyh/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242",
     "method": "code_compressor",
     "num_examples_scored": 500,
     "num_examples_total": 500,
-    "average_es": 55.58373726486455,
-    "average_em": 29.2,
+    "average_es": 56.89072699649853,
+    "average_em": 31.6,
     "total_original_tokens_all": 4664097,
-    "total_compressed_tokens_all": 1276675,
-    "compression_ratio_total_original_over_compressed": 3.653315839974935,
+    "total_compressed_tokens_all": 1163189,
+    "compression_ratio_total_original_over_compressed": 4.009749920262314,
     "parameters": {
         "dataset_path": "microsoft/LCC_python",
         "dataset_split": "test",
@@ -28,6 +30,8 @@
         "code_compressor_target_token": 2000,
         "code_compressor_rank_only": false,
         "code_compressor_fine_ratio": 0.8,
-        "importance_beta": 0.5
+        "importance_beta": 0.5,
+        "use_prompt_cache": false,
+        "prompt_cache_path": "results1/completion_baselines/method_code_compressor_t2000fr0.8_b0.5/Qwen_slash_Qwen2.5-Coder-7B-Instruct-prepared-prompts-cache.jsonl"
     }
 }

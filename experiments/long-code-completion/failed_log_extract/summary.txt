@@ -1,0 +1,17 @@
+===== c_ff4.log =====
+Method code_compressor: Avg ES = N/A, Avg EM = N/A (0/500 scored)
+Log-only CodeCompressor token stats: original=4591343, compressed=1039821, original/compressed=4.4155, avg_case_ratio=4.9501
+HYBRID-FINE internal token stats: original=4608082, compressed=1101906, original/compressed=4.1819, avg_case_ratio=4.4371
+NOTE: this log has no Case => es/em lines, so ES/EM cannot be recovered from the failed generation log.
+
+===== c_ff5.log =====
+Method code_compressor: Avg ES = N/A, Avg EM = N/A (0/500 scored)
+Log-only CodeCompressor token stats: original=4591343, compressed=858357, original/compressed=5.3490, avg_case_ratio=6.1336
+HYBRID-FINE internal token stats: original=4608082, compressed=921519, original/compressed=5.0005, avg_case_ratio=5.4217
+NOTE: this log has no Case => es/em lines, so ES/EM cannot be recovered from the failed generation log.
+
+===== c_ff3.log =====
+Method code_compressor: Avg ES = 56.30, Avg EM = 31.20 (500/500 scored)
+Log-only CodeCompressor token stats: original=4591343, compressed=1143570, original/compressed=4.0149, avg_case_ratio=4.2322
+HYBRID-FINE internal token stats: original=0, compressed=0, original/compressed=N/A, avg_case_ratio=N/A
+Successful-score token stats: original=4664097, compressed=1216287, original/compressed=3.8347

@@ -1,7 +1,28 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"  # Set this to the GPUs you want to use
+# ============================================================
+# 默认使用本地 HuggingFace 模型，避免 transformers / vLLM 联网
+# 你现在服务器上的 Qwen2.5-Coder-7B-Instruct snapshot 路径如下。
+# 以后直接运行 python main.py 即可默认加载这个本地模型。
+# ============================================================
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Set this to the GPUs you want to use
+
+LOCAL_QWEN_7B_PATH = (
+    "/home/nwpu_wyh/.cache/huggingface/hub/"
+    "models--Qwen--Qwen2.5-Coder-7B-Instruct/"
+    "snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242"
+)
+
+# 默认离线：禁止 HuggingFace Hub / transformers / datasets 自动联网检查或下载。
+# 如果以后你确实想临时联网下载新模型，可以在这里改成 "0"，或者直接注释掉。
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 import json
+import hashlib
+import inspect
 from tqdm import tqdm
 import torch
 from transformers import AutoTokenizer, AutoModel
@@ -10,10 +31,44 @@ import fire
 from utils import load_data, compute_EM, compute_ES
 from vllm import LLM, SamplingParams
 from loguru import logger
-from code_compressor_l11 import CodeCompressor
+from code_compressor_ff22 import CodeCompressor
 import gc
 from typing import List
 import re
+
+
+def resolve_local_model_path(model_name_or_path: str) -> str:
+    """
+    把默认的 Qwen/Qwen2.5-Coder-7B-Instruct 映射成本地 snapshot 路径。
+
+    这样 main.py 里其它地方仍然可以写原始模型名，
+    但真正加载 tokenizer / compressor / vLLM 时会自动走本地目录，避免联网。
+    """
+    if model_name_or_path == "Qwen/Qwen2.5-Coder-7B-Instruct":
+        if os.path.exists(LOCAL_QWEN_7B_PATH):
+            return LOCAL_QWEN_7B_PATH
+        raise FileNotFoundError(
+            f"本地模型路径不存在: {LOCAL_QWEN_7B_PATH}\n"
+            "请先检查下面命令是否能看到模型文件：\n"
+            "ls ~/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/"
+        )
+    return model_name_or_path
+
+
+def local_files_only_enabled() -> bool:
+    """当前默认离线运行，所以 transformers 加载时也只读本地缓存/本地目录。"""
+    return os.environ.get("HF_HUB_OFFLINE", "1") == "1" or os.environ.get(
+        "TRANSFORMERS_OFFLINE", "1"
+    ) == "1"
+
+
+def safe_model_filename(model_name_or_path: str) -> str:
+    """把模型名或路径转成适合保存结果文件的名字。"""
+    return (
+        model_name_or_path.replace("/", "_slash_")
+        .replace("\\", "_slash_")
+        .replace(":", "_")
+    )
 
 
 # Helper function for splitting code by functions (standalone version)
@@ -448,8 +503,126 @@ def compress_code_compressor(
 def save_json(data: dict, file_path: str):
     """Saves dictionary data to a JSON file."""
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, "w") as f:
-        json.dump(data, f, indent=4)
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+
+
+def build_prompt_cache_metadata(
+    model_name: str,
+    method: str,
+    dataset_path: str,
+    dataset_split: str,
+    num_examples: int,
+    filter_current_lines_max: int,
+    filter_background_tokens_min: int,
+    code_compressor_target_token: int,
+    code_compressor_fine_ratio: float,
+    importance_beta: float,
+    compressor_identity=None,
+) -> dict:
+    """用于判断 prepared prompts 缓存是否匹配当前实验参数。"""
+    return {
+        "model_name": model_name,
+        "method": method,
+        "dataset_path": dataset_path,
+        "dataset_split": dataset_split,
+        "num_examples": num_examples,
+        "filter_current_lines_max": filter_current_lines_max,
+        "filter_background_tokens_min": filter_background_tokens_min,
+        "code_compressor_target_token": code_compressor_target_token,
+        "code_compressor_fine_ratio": code_compressor_fine_ratio,
+        "importance_beta": importance_beta,
+        "compressor_identity": compressor_identity or {},
+    }
+
+
+def get_compressor_identity() -> dict:
+    """Make prepared-prompt cache sensitive to the selected compressor code."""
+    identity = {"module": getattr(CodeCompressor, "__module__", "")}
+    try:
+        source_path = inspect.getsourcefile(CodeCompressor) or ""
+        identity["source_path"] = source_path
+        if source_path and os.path.exists(source_path):
+            with open(source_path, "rb") as f:
+                identity["source_sha1"] = hashlib.sha1(f.read()).hexdigest()[:16]
+    except Exception as exc:
+        identity["source_error"] = type(exc).__name__
+    return identity
+
+
+def save_prompt_cache(
+    cache_path: str,
+    metadata: dict,
+    all_prompts: list[str],
+    original_data: list[dict],
+    total_original_tokens_all: int,
+    total_compressed_tokens_all: int,
+):
+    """保存压缩后的 prompts，避免生成阶段崩溃后重新压缩数小时。"""
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    tmp_path = cache_path + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        f.write(
+            json.dumps(
+                {
+                    "__metadata__": metadata,
+                    "total_original_tokens_all": total_original_tokens_all,
+                    "total_compressed_tokens_all": total_compressed_tokens_all,
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
+        for prompt, orig in zip(all_prompts, original_data):
+            f.write(
+                json.dumps(
+                    {
+                        "prompt": prompt,
+                        "original_data": orig,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+    os.replace(tmp_path, cache_path)
+
+
+def load_prompt_cache_if_valid(cache_path: str, expected_metadata: dict):
+    """如果缓存存在且参数匹配，返回缓存内容；否则返回 None。"""
+    if not os.path.exists(cache_path):
+        return None
+
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            first_line = f.readline()
+            if not first_line.strip():
+                return None
+            header = json.loads(first_line)
+            metadata = header.get("__metadata__")
+            if metadata != expected_metadata:
+                logger.warning(
+                    f"Prompt cache metadata mismatch, ignoring cache: {cache_path}"
+                )
+                return None
+
+            all_prompts = []
+            original_data = []
+            for line in f:
+                if not line.strip():
+                    continue
+                item = json.loads(line)
+                all_prompts.append(item["prompt"])
+                original_data.append(item["original_data"])
+
+        return {
+            "all_prompts": all_prompts,
+            "original_data": original_data,
+            "total_original_tokens_all": header.get("total_original_tokens_all", 0),
+            "total_compressed_tokens_all": header.get("total_compressed_tokens_all", 0),
+        }
+    except Exception as e:
+        logger.warning(f"Failed to load prompt cache {cache_path}: {e}", exc_info=True)
+        return None
 
 
 def generate_completions(llm, batch_prompts, max_new_tokens=128):
@@ -499,11 +672,28 @@ def evaluate_completion(
     code_compressor_fine_ratio: float = 0.8,  # Default 1.0 means rank_only=True
     # New CodeCompressor importance beta param
     importance_beta: float = 0.5,  # Default beta is 0.0
+    # Prepared prompt cache
+    use_prompt_cache: bool = False,
 ):
     """Evaluates code completion baselines with a specified context preparation method."""
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    stats_tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    # 原始名字保留给日志和结果文件；真正加载时使用本地路径。
+    model_load_path = resolve_local_model_path(model_name)
+    compression_model_load_path = resolve_local_model_path(compression_model_name)
+    embed_model_load_path = resolve_local_model_path(embed_model_name)
+
+    logger.info(f"Generation model name: {model_name}")
+    logger.info(f"Generation model load path: {model_load_path}")
+    logger.info(f"Compression model name: {compression_model_name}")
+    logger.info(f"Compression model load path: {compression_model_load_path}")
+
+    stats_tokenizer = AutoTokenizer.from_pretrained(
+        model_load_path,
+        trust_remote_code=trust_remote_code,
+        local_files_only=local_files_only_enabled(),
+    )
 
     total_original_tokens_all = 0
     total_compressed_tokens_all = 0
@@ -528,32 +718,47 @@ def evaluate_completion(
     embed_tokenizer = None
     if method == "rag" or method == "function_rag":
         logger.info(f"Initializing embedding model: {embed_model_name}")
-        embed_tokenizer = AutoTokenizer.from_pretrained(embed_model_name)
-        embed_model = AutoModel.from_pretrained(embed_model_name).to(device)
+        logger.info(f"Embedding model load path: {embed_model_load_path}")
+        embed_tokenizer = AutoTokenizer.from_pretrained(
+            embed_model_load_path,
+            trust_remote_code=trust_remote_code,
+            local_files_only=local_files_only_enabled(),
+        )
+        embed_model = AutoModel.from_pretrained(
+            embed_model_load_path,
+            trust_remote_code=trust_remote_code,
+            local_files_only=local_files_only_enabled(),
+        ).to(device)
         embed_model.eval()  # Set to evaluation mode
         logger.info(f"Embedding model {embed_model_name} initialized.")
 
     lingua_compressor = None
     if method == "llmlingua" or method == "longllmlingua":
         logger.info(f"Initializing LLMLingua compressor: {compression_model_name}")
+        logger.info(f"LLMLingua compressor load path: {compression_model_load_path}")
         lingua_compressor = PromptCompressor(
-            model_name=compression_model_name, device_map="auto"
+            model_name=compression_model_load_path, device_map="auto"
         )
         logger.info(f"LLMLingua compressor {compression_model_name} initialized.")
 
     code_compressor_instance = None  # Renamed to avoid conflict
     if method == "code_compressor":
         logger.info(f"Initializing CodeCompressor: {compression_model_name}")
+        logger.info(f"CodeCompressor load path: {compression_model_load_path}")
         # Assuming CodeCompressor takes model name and potentially device
         # Pass device explicitly if needed by your CodeCompressor implementation
-        code_compressor_instance = CodeCompressor(compression_model_name)
+        code_compressor_instance = CodeCompressor(compression_model_load_path)
         logger.info(f"CodeCompressor {compression_model_name} initialized.")
 
     if method in ["full", "no_context"]:
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_load_path,
+            trust_remote_code=trust_remote_code,
+            local_files_only=local_files_only_enabled(),
+        )
         # try to compress a dummy prompt to avoid cuda error when initializing the vllm (strange bug)
         code_compressor_instance = PromptCompressor(
-            model_name=compression_model_name, device_map="auto"
+            model_name=compression_model_load_path, device_map="auto"
         )
         logger.info(f"CodeCompressor {compression_model_name} initialized.")
         dummy_prompt = "def hello_world():\n    print('Hello, World!')" * 100
@@ -597,172 +802,222 @@ def evaluate_completion(
     method_result_dir = os.path.join(result_dir, method_suffix)
     os.makedirs(method_result_dir, exist_ok=True)
 
+    model_file_name = safe_model_filename(model_name)
     model_output_path = os.path.join(
         method_result_dir,
-        f"{model_name.replace('/', '_slash_')}.jsonl",
+        f"{model_file_name}.jsonl",
     )
     score_output_path = os.path.join(
         method_result_dir,
-        f"{model_name.replace('/', '_slash_')}-SCORES.json",
+        f"{model_file_name}-SCORES.json",
+    )
+
+    prompt_cache_metadata = build_prompt_cache_metadata(
+        model_name=model_name,
+        method=method,
+        dataset_path=dataset_path,
+        dataset_split=dataset_split,
+        num_examples=num_examples,
+        filter_current_lines_max=filter_current_lines_max,
+        filter_background_tokens_min=filter_background_tokens_min,
+        code_compressor_target_token=code_compressor_target_token,
+        code_compressor_fine_ratio=code_compressor_fine_ratio,
+        importance_beta=importance_beta,
+        compressor_identity=get_compressor_identity() if method == "code_compressor" else {},
+    )
+    prompt_cache_path = os.path.join(
+        method_result_dir,
+        f"{model_file_name}-prepared-prompts-cache.jsonl",
     )
 
     all_prompts = []
     original_data = []  # Store original data to merge with results
+    loaded_from_prompt_cache = False
+
+    if use_prompt_cache:
+        cached_prompt_data = load_prompt_cache_if_valid(
+            prompt_cache_path, prompt_cache_metadata
+        )
+        if cached_prompt_data is not None:
+            all_prompts = cached_prompt_data["all_prompts"]
+            original_data = cached_prompt_data["original_data"]
+            total_original_tokens_all = cached_prompt_data[
+                "total_original_tokens_all"
+            ]
+            total_compressed_tokens_all = cached_prompt_data[
+                "total_compressed_tokens_all"
+            ]
+            loaded_from_prompt_cache = True
+            logger.info(
+                f"Loaded {len(all_prompts)} prepared prompts from cache: {prompt_cache_path}"
+            )
 
     # Prepare prompts based on method
-    for i, example in enumerate(tqdm(dataset, desc=f"Preparing prompts for {method}")):
-        background_ctx = example["background_context"]
-        current_func_ctx = example["current_function_context"]  # This is the prefix
-        ground_truth = example["gt"]  # This is the completion target
-        # Determine language - assuming python for now based on dataset path
-        language = (
-            "python"  # IMPORTANT: Make dynamic if dataset contains multiple languages
+    if not loaded_from_prompt_cache:
+        for i, example in enumerate(tqdm(dataset, desc=f"Preparing prompts for {method}")):
+            background_ctx = example["background_context"]
+            current_func_ctx = example["current_function_context"]  # This is the prefix
+            ground_truth = example["gt"]  # This is the completion target
+            # Determine language - assuming python for now based on dataset path
+            language = (
+                "python"  # IMPORTANT: Make dynamic if dataset contains multiple languages
+            )
+
+            context_for_prompt = ""
+            try:
+                if method == "full":
+                    context_for_prompt = background_ctx + "\n\n" + current_func_ctx
+
+                    # some models have max context length of 32768, so we truncate the context (from the head) if it exceeds that
+                    tokenized_context = tokenizer.encode(context_for_prompt)
+                    if len(tokenized_context) > 32768 - 256:
+                        logger.warning(
+                            f"Context length exceeds 32768, truncating from the head. Original length: {len(tokenized_context)}, Truncated length: 32768"
+                        )
+                        context_for_prompt = tokenizer.decode(
+                            tokenized_context[-(32768 - 256) :]
+                        )
+                elif method == "rag":
+                    if not embed_model or not embed_tokenizer:
+                        raise ValueError(
+                            "RAG method selected but embedding model not initialized."
+                        )
+                    retrieved_ctx = rag_retrieve(
+                        background_ctx,
+                        current_func_ctx,
+                        embed_model,
+                        embed_tokenizer,
+                        device,
+                        rag_window_size,
+                        rag_overlap,
+                        rag_top_k,
+                    )
+                    context_for_prompt = retrieved_ctx + "\n\n" + current_func_ctx
+                elif method == "function_rag":
+                    if not embed_model or not embed_tokenizer:
+                        raise ValueError(
+                            "Function RAG method selected but embedding model not initialized."
+                        )
+                    retrieved_ctx = function_rag_retrieve(
+                        background_ctx,
+                        current_func_ctx,
+                        embed_model,
+                        embed_tokenizer,
+                        device,
+                        function_rag_language,
+                        function_rag_top_k,
+                    )
+                    context_for_prompt = retrieved_ctx + "\n\n" + current_func_ctx
+                elif method == "llmlingua":
+                    if not lingua_compressor:
+                        raise ValueError(
+                            "LLMLingua method selected but compressor not initialized."
+                        )
+                    compressed_ctx = compress_llmlingua(
+                        background_ctx,
+                        current_func_ctx,
+                        lingua_compressor,
+                        lingua_target_token,
+                        lingua_instruction,
+                    )
+                    context_for_prompt = compressed_ctx + "\n\n" + current_func_ctx
+                elif method == "longllmlingua":
+                    if not lingua_compressor:
+                        raise ValueError(
+                            "LongLLMLingua method selected but compressor not initialized."
+                        )
+                    compressed_ctx = compress_longllmlingua(
+                        background_ctx,
+                        current_func_ctx,
+                        lingua_compressor,
+                        lingua_target_token,
+                        lingua_instruction,
+                        longlingua_chunk_size,
+                        longlingua_overlap,
+                    )
+                    context_for_prompt = compressed_ctx + "\n\n" + current_func_ctx
+                elif method == "code_compressor":
+                    if not code_compressor_instance:
+                        raise ValueError(
+                            "CodeCompressor method selected but compressor not initialized."
+                        )
+                    # Determine rank_only based on fine_ratio
+                    rank_only = code_compressor_fine_ratio == 1.0
+                    logger.info(
+                        f"CodeCompressor mode: {'Rank Only' if rank_only else f'Fine-grained (ratio={code_compressor_fine_ratio})'}"
+                    )
+                    # Use current_func_ctx as the query for CodeCompressor to focus retrieval
+                    compressed_ctx = compress_code_compressor(
+                        context=background_ctx,
+                        query=current_func_ctx,  # Query is the current function prefix
+                        compressor=code_compressor_instance,
+                        target_token=code_compressor_target_token,
+                        instruction=lingua_instruction,  # Reusing lingua instruction
+                        language=language,
+                        rank_only=rank_only,  # Pass determined rank_only flag
+                        fine_ratio=code_compressor_fine_ratio,  # Pass fine_ratio
+                        importance_beta=importance_beta,  # Pass importance_beta
+                    )
+                    # Combine the compressed background context with the original current function context
+                    context_for_prompt = compressed_ctx + "\n\n" + current_func_ctx
+                elif method == "no_context":
+                    context_for_prompt = current_func_ctx
+                else:
+                    raise ValueError(f"Unknown method: {method}")
+
+                # 统计原始上下文 token 和压缩后上下文 token
+                if method == "no_context":
+                    original_prompt_text = current_func_ctx
+                else:
+                    original_prompt_text = background_ctx + "\n\n" + current_func_ctx
+
+                compressed_prompt_text = context_for_prompt.strip()
+
+                original_tokens_example = len(stats_tokenizer.encode(original_prompt_text))
+                compressed_tokens_example = len(
+                    stats_tokenizer.encode(compressed_prompt_text)
+                )
+
+                total_original_tokens_all += original_tokens_example
+                total_compressed_tokens_all += compressed_tokens_example
+
+                case_ratio = (
+                    original_tokens_example / compressed_tokens_example
+                    if compressed_tokens_example > 0
+                    else 0
+                )
+
+                prompt = context_for_prompt.strip()
+                all_prompts.append(prompt)
+                original_data.append(
+                    {
+                        "id": example.get("id", i),
+                        "gt": ground_truth,
+                        "original_background_context": background_ctx,
+                        "original_current_function_context": current_func_ctx,
+                        "language": language,  # Store language if needed later
+                        "original_tokens": original_tokens_example,
+                        "compressed_tokens": compressed_tokens_example,
+                        "ratio": case_ratio,  # 压缩后 / 压缩前
+                    }
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Error processing example {i} (ID: {example.get('id', 'N/A')}) for method {method}: {e}",
+                    exc_info=True,
+                )
+                continue  # Skip this example
+
+    if use_prompt_cache and not loaded_from_prompt_cache:
+        save_prompt_cache(
+            prompt_cache_path,
+            prompt_cache_metadata,
+            all_prompts,
+            original_data,
+            total_original_tokens_all,
+            total_compressed_tokens_all,
         )
-
-        context_for_prompt = ""
-        try:
-            if method == "full":
-                context_for_prompt = background_ctx + "\n\n" + current_func_ctx
-
-                # some models have max context length of 32768, so we truncate the context (from the head) if it exceeds that
-                tokenized_context = tokenizer.encode(context_for_prompt)
-                if len(tokenized_context) > 32768 - 256:
-                    logger.warning(
-                        f"Context length exceeds 32768, truncating from the head. Original length: {len(tokenized_context)}, Truncated length: 32768"
-                    )
-                    context_for_prompt = tokenizer.decode(
-                        tokenized_context[-(32768 - 256) :]
-                    )
-            elif method == "rag":
-                if not embed_model or not embed_tokenizer:
-                    raise ValueError(
-                        "RAG method selected but embedding model not initialized."
-                    )
-                retrieved_ctx = rag_retrieve(
-                    background_ctx,
-                    current_func_ctx,
-                    embed_model,
-                    embed_tokenizer,
-                    device,
-                    rag_window_size,
-                    rag_overlap,
-                    rag_top_k,
-                )
-                context_for_prompt = retrieved_ctx + "\n\n" + current_func_ctx
-            elif method == "function_rag":
-                if not embed_model or not embed_tokenizer:
-                    raise ValueError(
-                        "Function RAG method selected but embedding model not initialized."
-                    )
-                retrieved_ctx = function_rag_retrieve(
-                    background_ctx,
-                    current_func_ctx,
-                    embed_model,
-                    embed_tokenizer,
-                    device,
-                    function_rag_language,
-                    function_rag_top_k,
-                )
-                context_for_prompt = retrieved_ctx + "\n\n" + current_func_ctx
-            elif method == "llmlingua":
-                if not lingua_compressor:
-                    raise ValueError(
-                        "LLMLingua method selected but compressor not initialized."
-                    )
-                compressed_ctx = compress_llmlingua(
-                    background_ctx,
-                    current_func_ctx,
-                    lingua_compressor,
-                    lingua_target_token,
-                    lingua_instruction,
-                )
-                context_for_prompt = compressed_ctx + "\n\n" + current_func_ctx
-            elif method == "longllmlingua":
-                if not lingua_compressor:
-                    raise ValueError(
-                        "LongLLMLingua method selected but compressor not initialized."
-                    )
-                compressed_ctx = compress_longllmlingua(
-                    background_ctx,
-                    current_func_ctx,
-                    lingua_compressor,
-                    lingua_target_token,
-                    lingua_instruction,
-                    longlingua_chunk_size,
-                    longlingua_overlap,
-                )
-                context_for_prompt = compressed_ctx + "\n\n" + current_func_ctx
-            elif method == "code_compressor":
-                if not code_compressor_instance:
-                    raise ValueError(
-                        "CodeCompressor method selected but compressor not initialized."
-                    )
-                # Determine rank_only based on fine_ratio
-                rank_only = code_compressor_fine_ratio == 1.0
-                logger.info(
-                    f"CodeCompressor mode: {'Rank Only' if rank_only else f'Fine-grained (ratio={code_compressor_fine_ratio})'}"
-                )
-                # Use current_func_ctx as the query for CodeCompressor to focus retrieval
-                compressed_ctx = compress_code_compressor(
-                    context=background_ctx,
-                    query=current_func_ctx,  # Query is the current function prefix
-                    compressor=code_compressor_instance,
-                    target_token=code_compressor_target_token,
-                    instruction=lingua_instruction,  # Reusing lingua instruction
-                    language=language,
-                    rank_only=rank_only,  # Pass determined rank_only flag
-                    fine_ratio=code_compressor_fine_ratio,  # Pass fine_ratio
-                    importance_beta=importance_beta,  # Pass importance_beta
-                )
-                # Combine the compressed background context with the original current function context
-                context_for_prompt = compressed_ctx + "\n\n" + current_func_ctx
-            elif method == "no_context":
-                context_for_prompt = current_func_ctx
-            else:
-                raise ValueError(f"Unknown method: {method}")
-
-            # 统计原始上下文 token 和压缩后上下文 token
-            if method == "no_context":
-                original_prompt_text = current_func_ctx
-            else:
-                original_prompt_text = background_ctx + "\n\n" + current_func_ctx
-
-            compressed_prompt_text = context_for_prompt.strip()
-
-            original_tokens_example = len(stats_tokenizer.encode(original_prompt_text))
-            compressed_tokens_example = len(
-                stats_tokenizer.encode(compressed_prompt_text)
-            )
-
-            total_original_tokens_all += original_tokens_example
-            total_compressed_tokens_all += compressed_tokens_example
-
-            case_ratio = (
-                original_tokens_example / compressed_tokens_example
-                if compressed_tokens_example > 0
-                else 0
-            )
-
-            prompt = context_for_prompt.strip()
-            all_prompts.append(prompt)
-            original_data.append(
-                {
-                    "id": example.get("id", i),
-                    "gt": ground_truth,
-                    "original_background_context": background_ctx,
-                    "original_current_function_context": current_func_ctx,
-                    "language": language,  # Store language if needed later
-                    "original_tokens": original_tokens_example,
-                    "compressed_tokens": compressed_tokens_example,
-                    "ratio": case_ratio,  # 压缩后 / 压缩前
-                }
-            )
-        except Exception as e:
-            logger.warning(
-                f"Error processing example {i} (ID: {example.get('id', 'N/A')}) for method {method}: {e}",
-                exc_info=True,
-            )
-            continue  # Skip this example
+        logger.info(f"Saved prepared prompts cache to: {prompt_cache_path}")
 
     # --- 4. Clean up Compression/Embedding Models ---
     logger.info("Freeing up GPU memory from compression/embedding models")
@@ -787,15 +1042,17 @@ def evaluate_completion(
         return
 
     logger.info(f"Initializing generation LLM: {model_name}")
+    logger.info(f"Generation LLM load path: {model_load_path}")
     llm = LLM(
-        model=model_name,
+        model=model_load_path,
+        tokenizer=model_load_path,
         trust_remote_code=trust_remote_code,
         gpu_memory_utilization=gpu_memory_utilization,
         tensor_parallel_size=tensor_parallel_size,
         max_num_seqs=1,
         max_model_len=32768,
     )
-    logger.info(f"Generation LLM {model_name} initialized.")
+    logger.info(f"Generation LLM {model_name} initialized from local path.")
 
     # --- 6. Generate Completions ---
     all_outputs = []
@@ -882,7 +1139,7 @@ def evaluate_completion(
             result["es"] = es
             result["em"] = em
             model_outputs_data.append(result)
-            f_out.write(json.dumps(result) + "\n")
+            f_out.write(json.dumps(result, ensure_ascii=False) + "\n")
 
     logger.info(f"Raw results saved to {model_output_path}")
 
@@ -892,6 +1149,8 @@ def evaluate_completion(
     # Update the parameters dictionary in scores
     scores = {
         "model_name": model_name,
+        "model_load_path": model_load_path,
+        "compression_model_load_path": compression_model_load_path,
         "method": method,
         "num_examples_scored": valid_scores,
         "num_examples_total": len(
@@ -963,6 +1222,8 @@ def evaluate_completion(
             "importance_beta": (
                 importance_beta if method == "code_compressor" else None
             ),  # Added parameter
+            "use_prompt_cache": use_prompt_cache,
+            "prompt_cache_path": prompt_cache_path,
         },
     }
 

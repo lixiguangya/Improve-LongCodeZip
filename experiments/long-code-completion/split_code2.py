@@ -12,9 +12,10 @@ split_code_fixed_semantic_blocks.py
 4) if / elif / else 分支严格拆分；分支体 <= 阈值时整体作为一个块，否则拆 header 后递归
 5) 支持 function / class / module / suite 四种输入
 
-l7 说明：
-- 保持 split_code1 的语义块边界，不把 docstring/前导注释合并进块。
-- 之前 l4/l5 的块扩大策略会提高单块 token 成本，并让 NSGA-II 在预算内少选关键执行语句。
+ff7 说明：
+- 保持 split_code1 的主体语义块边界，只做最终后处理。
+- 紧贴函数、类、控制头、return/关键赋值的短注释会附着到对应块。
+- license/版权/纯分隔线/过长说明仍然不附着，避免把注释变成必须保留的大块。
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ import re
 import shutil
 import subprocess
 import textwrap
+import time
 from dataclasses import dataclass, field
 from copy import deepcopy
 from pathlib import Path
@@ -61,7 +63,7 @@ suppress_lib2to3_noise()
 # 1) 配置区
 # =========================================================
 
-JOERN_HOME = r"/home/zhangmanqing/wyh/joern-cli"
+JOERN_HOME = r"/home/nwpu_wyh/joern-cli"
 
 # 这里保留和你原来一样的入口风格；实际运行时你可以直接改这两个常量
 SOURCE_CODE = r"""
@@ -276,6 +278,7 @@ def ensure_dir(path: Path) -> None:
 
 def which(cmd: str, joern_home: Optional[Path] = None) -> str:
     if joern_home:
+        joern_home = Path(joern_home).expanduser()
         candidate = joern_home / cmd
         if candidate.exists():
             return str(candidate)
@@ -929,7 +932,9 @@ def generate_pdg_with_joern(source_file: Path, work_dir: Path, joern_home: Optio
     joern_export = which("joern-export", joern_home)
 
     input_dir = work_dir / "input_src"
-    output_dir = work_dir / "pdg_out"
+    run_tag = str(os.getpid())
+    output_dir = work_dir / f"pdg_out_{run_tag}"
+    cpg_file = work_dir / f"cpg_{run_tag}.bin"
 
     ensure_dir(input_dir)
     if output_dir.exists():
@@ -937,12 +942,23 @@ def generate_pdg_with_joern(source_file: Path, work_dir: Path, joern_home: Optio
 
     shutil.copy2(source_file, input_dir / source_file.name)
 
-    parse_cmd = [joern_parse, str(input_dir), "--language", "PYTHONSRC"]
+    if cpg_file.exists():
+        cpg_file.unlink()
+
+    parse_cmd = [joern_parse, str(input_dir.resolve()), "--language", "PYTHONSRC", "-o", str(cpg_file.resolve())]
     if PYTHON_VENV_DIR.strip():
         parse_cmd += ["--frontend-args", "--venvDir", PYTHON_VENV_DIR.strip()]
 
     run_cmd(parse_cmd, cwd=work_dir)
-    run_cmd([joern_export, "--repr", "pdg", "--out", str(output_dir)], cwd=work_dir)
+
+    for _ in range(30):
+        if cpg_file.exists() and cpg_file.stat().st_size > 0:
+            break
+        time.sleep(0.1)
+    if not cpg_file.exists() or cpg_file.stat().st_size <= 0:
+        raise FileNotFoundError(f"Joern parse finished but CPG was not created: {cpg_file}")
+
+    run_cmd([joern_export, str(cpg_file.resolve()), "--repr", "pdg", "--out", str(output_dir.resolve())], cwd=work_dir)
     return output_dir
 
 
@@ -2370,6 +2386,179 @@ def build_suite_semantic_blocks(stmts: List[ast.AST], source_text: str, source_l
 
 def build_module_semantic_blocks(tree: ast.AST, source_text: str, source_lines: List[str]) -> List[SemanticBlock]:
     return build_suite_semantic_blocks(getattr(tree, "body", []), source_text, source_lines, depth=0)
+
+
+# =========================================================
+# 9.5) ff7 轻量后处理：有价值注释贴近对应语义块
+# =========================================================
+
+_base_build_semantic_blocks = build_semantic_blocks
+_base_build_class_semantic_blocks = build_class_semantic_blocks
+_base_build_suite_semantic_blocks = build_suite_semantic_blocks
+_base_build_module_semantic_blocks = build_module_semantic_blocks
+
+
+def _split_code2_comment_start_line(source_lines: List[str], stmt_start_line: int, lower_bound: int = 1) -> int:
+    if not source_lines or stmt_start_line <= 1:
+        return stmt_start_line
+    lower_bound = max(1, lower_bound)
+    idx = min(stmt_start_line - 1, len(source_lines))
+    while idx > lower_bound - 1 and not source_lines[idx - 1].strip():
+        idx -= 1
+    if idx <= lower_bound - 1 or not source_lines[idx - 1].lstrip().startswith("#"):
+        return stmt_start_line
+    while idx > lower_bound - 1 and (
+        not source_lines[idx - 1].strip()
+        or source_lines[idx - 1].lstrip().startswith("#")
+    ):
+        idx -= 1
+    return max(idx + 1, lower_bound)
+
+
+def _split_code2_comment_is_valuable(text: str) -> bool:
+    stripped = (text or "").strip()
+    if not stripped:
+        return False
+    low = stripped.lower()
+    if re.search(r"\b(license|copyright|permission|warranty|all rights reserved)\b", low):
+        return False
+    compact = re.sub(r"\s+", "", low)
+    if re.fullmatch(r"[#/*=_\\-]+", compact or ""):
+        return False
+    lines = [line for line in stripped.splitlines() if line.strip()]
+    if len(lines) > 12 and not re.search(r"\b(param|args|return|todo|fixme|note|warning|default|example)\b|参数|返回|边界", low):
+        return False
+    if len(stripped) > 900:
+        return False
+    return True
+
+
+def _split_code2_find_header_docstring_end(source_lines: List[str], header_end_line: int) -> Optional[int]:
+    if not source_lines or header_end_line < 1 or header_end_line >= len(source_lines):
+        return None
+    idx = header_end_line + 1
+    while idx <= len(source_lines) and not source_lines[idx - 1].strip():
+        idx += 1
+    if idx > len(source_lines):
+        return None
+    stripped = source_lines[idx - 1].strip()
+    quote = None
+    if stripped.startswith('"""'):
+        quote = '"""'
+    elif stripped.startswith("'''"):
+        quote = "'''"
+    if quote is None:
+        return None
+    if stripped.count(quote) >= 2 and len(stripped) > 3:
+        return idx
+    end = idx + 1
+    while end <= len(source_lines):
+        if quote in source_lines[end - 1]:
+            return end
+        end += 1
+    return None
+
+
+def _split_code2_repair_blocks_with_comments(
+    blocks: List[SemanticBlock],
+    source_lines: List[str],
+    source_kind: str,
+) -> List[SemanticBlock]:
+    if not blocks or not source_lines:
+        return blocks
+
+    repaired = deepcopy(blocks)
+    ordered = sorted(
+        range(len(repaired)),
+        key=lambda i: (
+            repaired[i].start_line if repaired[i].start_line >= 0 else 10**9,
+            repaired[i].end_line if repaired[i].end_line >= 0 else 10**9,
+            repaired[i].depth,
+            i,
+        ),
+    )
+
+    protected_floor = 1
+    for pos, idx in enumerate(ordered):
+        block = repaired[idx]
+        repairs = list(getattr(block, "split_code2_repairs", []) or [])
+        start = block.start_line
+        end = block.end_line
+        if start < 1 or end < start:
+            setattr(block, "split_code2_repairs", repairs + ["invalid_span_skipped"])
+            continue
+
+        lower_bound = max(protected_floor, 1)
+        context_start = _split_code2_comment_start_line(source_lines, start, lower_bound=lower_bound)
+        if context_start < start:
+            prefix = slice_source_lines(source_lines, context_start, start - 1)
+            if _split_code2_comment_is_valuable(prefix):
+                block.code = f"{prefix.rstrip()}\n{block.code.rstrip()}".rstrip("\n")
+                block.start_line = context_start
+                setattr(block, "split_code2_comment_attached", True)
+                setattr(block, "split_code2_comment_start_line", context_start)
+                repairs.append(f"attached_leading_comment:{context_start}-{start - 1}")
+            else:
+                repairs.append(f"skipped_low_value_comment:{context_start}-{start - 1}")
+
+        if block.kind == "definition":
+            doc_end = _split_code2_find_header_docstring_end(source_lines, block.end_line)
+            if doc_end is not None and doc_end > block.end_line:
+                doc_start = block.end_line + 1
+                doc_text = slice_source_lines(source_lines, doc_start, doc_end)
+                if _split_code2_comment_is_valuable(doc_text):
+                    block.code = slice_source_lines(source_lines, block.start_line, doc_end).rstrip("\n")
+                    block.end_line = doc_end
+                    setattr(block, "split_code2_comment_attached", True)
+                    setattr(block, "split_code2_comment_start_line", doc_start)
+                    repairs.append(f"attached_header_docstring:{doc_start}-{doc_end}")
+                else:
+                    repairs.append(f"skipped_low_value_docstring:{doc_start}-{doc_end}")
+
+        if block.code and block.code.strip():
+            protected_floor = max(protected_floor, block.end_line + 1)
+        setattr(block, "split_code2_repairs", repairs)
+
+    # Metadata-only overlap repair. Code text is left intact; the compressor
+    # uses these spans for logging and dependency projection diagnostics.
+    last_end = 0
+    for idx in ordered:
+        block = repaired[idx]
+        repairs = list(getattr(block, "split_code2_repairs", []) or [])
+        if block.start_line > 0 and block.start_line <= last_end:
+            old = block.start_line
+            block.start_line = last_end + 1
+            repairs.append(f"fixed_overlap_start:{old}->{block.start_line}")
+        last_end = max(last_end, block.end_line)
+        setattr(block, "split_code2_repairs", repairs)
+
+    return [block for block in repaired if block.code and block.code.strip()]
+
+
+def build_semantic_blocks(
+    func_node: ast.AST,
+    source_text: str,
+    source_lines: List[str],
+    line_graph: Optional[nx.DiGraph],
+    stmt_by_ast_id: Dict[int, StmtInfo],
+) -> List[SemanticBlock]:
+    blocks = _base_build_semantic_blocks(func_node, source_text, source_lines, line_graph, stmt_by_ast_id)
+    return _split_code2_repair_blocks_with_comments(blocks, source_lines, "function")
+
+
+def build_class_semantic_blocks(class_node: ast.ClassDef, source_text: str, source_lines: List[str]) -> List[SemanticBlock]:
+    blocks = _base_build_class_semantic_blocks(class_node, source_text, source_lines)
+    return _split_code2_repair_blocks_with_comments(blocks, source_lines, "class")
+
+
+def build_suite_semantic_blocks(stmts: List[ast.AST], source_text: str, source_lines: List[str], depth: int = 0) -> List[SemanticBlock]:
+    blocks = _base_build_suite_semantic_blocks(stmts, source_text, source_lines, depth=depth)
+    return _split_code2_repair_blocks_with_comments(blocks, source_lines, "suite")
+
+
+def build_module_semantic_blocks(tree: ast.AST, source_text: str, source_lines: List[str]) -> List[SemanticBlock]:
+    blocks = _base_build_module_semantic_blocks(tree, source_text, source_lines)
+    return _split_code2_repair_blocks_with_comments(blocks, source_lines, "module")
 
 
 # =========================================================
