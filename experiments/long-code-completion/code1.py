@@ -61,22 +61,22 @@ GROUPS: Dict[str, GroupSpec] = {
     "g1": GroupSpec(
         key="g1",
         label="第一组",
-        source="code_compressor_ff20.py",
-        log_path=BASE_DIR / "c_ff20.log",
+        source="code_compressor_ff23.py",
+        log_path=BASE_DIR / "c_ff23.log",
         final_result_title="整体细粒度压缩完后的结果",
     ),
     "g2": GroupSpec(
         key="g2",
         label="第二组",
-        source="code_compressor_ff6.py",
-        log_path=BASE_DIR / "c_ff6.log",
+        source="code_compressor_ff22.py",
+        log_path=BASE_DIR / "c_ff22.log",
         final_result_title="整体细粒度压缩完后的结果",
     ),
     "g3": GroupSpec(
         key="g3",
         label="第三组",
-        source="code_compressor.py",
-        log_path=BASE_DIR / "c0.log",
+        source="code_compressor_ff27.py",
+        log_path=BASE_DIR / "c_ff27.log",
         final_result_title="整体细粒度压缩完后的结果",
     ),
 }
